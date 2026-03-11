@@ -1,0 +1,58 @@
+{
+  "image_size": 224,
+  "mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "classes": [
+    {
+      "class_index": 0,
+      "folder_name": "Bacterial Red disease",
+      "disease_id": 1,
+      "disease_name": "Bacterial Red Disease"
+    },
+    {
+      "class_index": 1,
+      "folder_name": "Bacterial diseases - Aeromoniasis",
+      "disease_id": 2,
+      "disease_name": "Bacterial Aeromoniasis"
+    },
+    {
+      "class_index": 2,
+      "folder_name": "Bacterial gill disease",
+      "disease_id": 3,
+      "disease_name": "Bacterial Gill Disease"
+    },
+    {
+      "class_index": 3,
+      "folder_name": "Fungal diseases Saprolegniasis",
+      "disease_id": 4,
+      "disease_name": "Fungal Disease - Saprolegniasis"
+    },
+    {
+      "class_index": 4,
+      "folder_name": "Healthy Fish",
+      "disease_id": 5,
+      "disease_name": "Healthy Fish"
+    },
+    {
+      "class_index": 5,
+      "folder_name": "Parasitic diseases",
+      "disease_id": 6,
+      "disease_name": "Parasitic Disease"
+    },
+    {
+      "class_index": 6,
+      "folder_name": "Viral diseases White tail disease",
+      "disease_id": 7,
+      "disease_name": "Viral Disease - White Tail Disease"
+    }
+  ],
+  "model_name": "mobilenet_v3_large"
+}

@@ -1,0 +1,65 @@
+[
+  {
+    "id": 1,
+    "name": "Bacterial Red Disease",
+    "type": "Bacterial",
+    "cause": "Usually caused by poor water quality, overcrowding, and stress that allow opportunistic bacteria to infect fish skin and blood vessels.",
+    "symptoms": "Red patches on the body, inflamed fins, skin hemorrhage, sluggish movement, and reduced feeding.",
+    "treatment": "Isolate infected fish, improve aeration, and apply veterinarian-recommended antibacterial treatment in feed or bath.",
+    "prevention": "Maintain clean water, avoid overstocking, disinfect equipment, and provide balanced feed to strengthen immunity."
+  },
+  {
+    "id": 2,
+    "name": "Bacterial Aeromoniasis",
+    "type": "Bacterial",
+    "cause": "Infection by Aeromonas species in warm water conditions, especially when fish are stressed or injured.",
+    "symptoms": "Ulcers, swollen abdomen, scale loss, fin rot, and occasional sudden mortality in ponds.",
+    "treatment": "Move affected fish to a treatment tank, sanitize water, and follow approved antibiotic protocol from aquaculture experts.",
+    "prevention": "Regular pond hygiene, good nutrition, stress reduction during handling, and periodic health monitoring."
+  },
+  {
+    "id": 3,
+    "name": "Bacterial Gill Disease",
+    "type": "Bacterial",
+    "cause": "High organic load and low dissolved oxygen promote bacterial growth on gill tissues.",
+    "symptoms": "Rapid breathing, fish gasping near water surface, swollen or pale gills, and weak activity.",
+    "treatment": "Enhance water exchange, increase aeration, reduce organic waste, and use recommended antibacterial bath treatment.",
+    "prevention": "Keep dissolved oxygen stable, avoid excess feed waste, and perform regular pond bottom cleaning."
+  },
+  {
+    "id": 4,
+    "name": "Fungal Disease - Saprolegniasis",
+    "type": "Fungal",
+    "cause": "Saprolegnia fungi infect fish with skin injuries or eggs exposed to poor environmental conditions.",
+    "symptoms": "Cotton-like white or gray growth on skin, fins, or eggs, along with skin irritation and lethargy.",
+    "treatment": "Separate infected stock, apply antifungal bath as advised, and remove dead eggs or tissue from tanks.",
+    "prevention": "Avoid physical injuries, keep water quality stable, quarantine new fish, and disinfect hatchery tools."
+  },
+  {
+    "id": 5,
+    "name": "Healthy Fish",
+    "type": "Healthy",
+    "cause": "No active disease detected in the selected image based on current mock prediction.",
+    "symptoms": "Clear skin, normal swimming, active feeding behavior, and no visible lesions or discoloration.",
+    "treatment": "No treatment required. Continue routine observation and good husbandry practices.",
+    "prevention": "Sustain quality feed, regular water testing, biosecurity practices, and timely pond maintenance."
+  },
+  {
+    "id": 6,
+    "name": "Parasitic Disease",
+    "type": "Parasitic",
+    "cause": "External or internal parasites spread through contaminated water, infected fish, or poor pond sanitation.",
+    "symptoms": "Frequent rubbing against pond surfaces, visible spots, fin damage, weight loss, and restlessness.",
+    "treatment": "Use species-safe antiparasitic treatment, improve filtration, and isolate heavily infested fish.",
+    "prevention": "Quarantine new fish, maintain biosecurity, monitor stocking density, and clean ponds regularly."
+  },
+  {
+    "id": 7,
+    "name": "Viral Disease - White Tail Disease",
+    "type": "Viral",
+    "cause": "Caused by viral infection, often spreading quickly in hatcheries and juvenile culture systems.",
+    "symptoms": "Whitish tail muscle, abnormal swimming, muscle weakness, poor feeding, and high mortality in fry.",
+    "treatment": "No specific antiviral cure; provide supportive care, remove infected fish, and disinfect affected systems.",
+    "prevention": "Use pathogen-free seed, strict hatchery hygiene, regular screening, and control movement between culture units."
+  }
+]
