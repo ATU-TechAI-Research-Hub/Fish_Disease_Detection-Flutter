@@ -21,9 +21,9 @@ class PredictionService:
         self._class_map_file = class_map_file
         self._session: ort.InferenceSession | None = None
         self._input_name: str | None = None
-        self._image_size = 224
-        self._mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 3, 1, 1)
-        self._std = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 3, 1, 1)
+        self._image_size = 150
+        self._mean = np.array([0.0, 0.0, 0.0], dtype=np.float32).reshape(1, 3, 1, 1)
+        self._std = np.array([1.0, 1.0, 1.0], dtype=np.float32).reshape(1, 3, 1, 1)
         self._class_map: dict[int, dict[str, object]] = {}
         self._runtime_source = "model-not-loaded"
         if self._model_file and self._class_map_file:
@@ -90,25 +90,11 @@ class PredictionService:
         ]
         return all(any((path_entry / dll_name).exists() for path_entry in path_entries) for dll_name in required_dlls)
 
-    def _resize_and_crop(self, image: Image.Image) -> Image.Image:
-        resize_size = int(round(self._image_size / 0.875))
+    def _resize_image(self, image: Image.Image) -> Image.Image:
         width, height = image.size
         if width == 0 or height == 0:
             raise ValueError("Image has invalid dimensions.")
-
-        if width < height:
-            new_width = resize_size
-            new_height = int(height * resize_size / width)
-        else:
-            new_height = resize_size
-            new_width = int(width * resize_size / height)
-
-        resized = image.resize((new_width, new_height), Image.BILINEAR)
-        left = max((new_width - self._image_size) // 2, 0)
-        top = max((new_height - self._image_size) // 2, 0)
-        right = left + self._image_size
-        bottom = top + self._image_size
-        return resized.crop((left, top, right, bottom))
+        return image.resize((self._image_size, self._image_size), Image.BILINEAR)
 
     def _preprocess_image(self, image_bytes: bytes) -> np.ndarray:
         try:
@@ -116,7 +102,7 @@ class PredictionService:
         except Exception as exc:
             raise ValueError("Uploaded file is not a valid image.") from exc
 
-        cropped = self._resize_and_crop(image)
+        cropped = self._resize_image(image)
         image_array = np.asarray(cropped, dtype=np.float32) / 255.0
         image_array = np.transpose(image_array, (2, 0, 1))[None, ...]
         normalized = (image_array - self._mean) / self._std

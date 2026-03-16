@@ -1,13 +1,14 @@
 # Freshwater Fish Disease Aquaculture in South Asia
 
-Flutter + FastAPI application for freshwater fish disease detection.
+Flutter + FastAPI application for freshwater fish disease detection, implementing the CNN architecture from [Tamut et al., *Aquac. J.* 2025, 5, 6](https://doi.org/10.3390/aquacj5010006).
 
 ## Project Overview
 
 - **Frontend (Flutter):** Capture/upload a fish image and display the predicted disease details.
 - **Backend (FastAPI):** Load the exported ONNX classifier and run real image inference.
+- **Model:** Custom CNN from the paper -- 3 Conv2D layers (128/64/32 filters), BatchNorm, MaxPool, Dropout, Dense(256), 7-class Softmax. 2,201,639 parameters (8.40 MB). Achieves **95.4% test accuracy** on the dataset.
 - **Training Pipeline:** Prepare the dataset, train the classifier on the local GPU, export ONNX, and reuse `assets/diseases.json` for disease metadata.
-- **Data Source:** `assets/diseases.json` with 7 disease classes plus the local fish image dataset.
+- **Data Source:** `assets/diseases.json` with 7 disease classes plus the Kaggle fish image dataset (2444 images).
 
 ## Train The Model
 
@@ -16,7 +17,7 @@ cd backend
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 .venv\Scripts\python.exe -m train.prepare_dataset
-.venv\Scripts\python.exe -m train.train_classifier --epochs 6
+.venv\Scripts\python.exe -m train.train_classifier --epochs 50
 ```
 
 Optional, for CUDA-enabled GPU training on Windows:

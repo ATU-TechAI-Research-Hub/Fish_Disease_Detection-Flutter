@@ -12,15 +12,9 @@ import torch
 from PIL import Image, ImageFile
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from torch import nn
-from torch.optim import AdamW
+from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
-from torchvision.models import (
-    EfficientNet_B0_Weights,
-    MobileNet_V3_Large_Weights,
-    efficientnet_b0,
-    mobilenet_v3_large,
-)
 from tqdm import tqdm
 
 from train.prepare_dataset import (
@@ -62,53 +56,76 @@ def seed_everything(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
+class PaperCNN(nn.Module):
+    """Custom CNN architecture from the research paper (Tamut et al., Aquac. J. 2025).
+
+    Architecture (Table 1 of the paper):
+      Conv2D(128, 5x5) -> ReLU -> MaxPool(2x2) -> BatchNorm -> Dropout(0.25)
+      Conv2D(64, 3x3)  -> ReLU -> MaxPool(2x2) -> BatchNorm -> Dropout(0.25)
+      Conv2D(32, 3x3)  -> ReLU -> MaxPool(2x2) -> BatchNorm -> Dropout(0.25)
+      Flatten -> Dense(256, ReLU) -> Dropout(0.5) -> Dense(7, Softmax)
+
+    Uses L1 kernel regularization via external weight decay on conv weights.
+    """
+
+    def __init__(self, num_classes: int = 7) -> None:
+        super().__init__()
+
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 128, kernel_size=5, padding=0),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.BatchNorm2d(128),
+            nn.Dropout2d(0.25),
+
+            nn.Conv2d(128, 64, kernel_size=3, padding=0),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.BatchNorm2d(64),
+            nn.Dropout2d(0.25),
+
+            nn.Conv2d(64, 32, kernel_size=3, padding=0),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.BatchNorm2d(32),
+            nn.Dropout2d(0.25),
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(32 * 16 * 16, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(256, num_classes),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.features(x)
+        x = self.classifier(x)
+        return x
+
+
 def build_model(model_name: str, num_classes: int) -> nn.Module:
-    if model_name == "efficientnet_b0":
-        try:
-            weights = EfficientNet_B0_Weights.DEFAULT
-            model = efficientnet_b0(weights=weights)
-        except Exception:
-            model = efficientnet_b0(weights=None)
-        in_features = model.classifier[1].in_features
-        model.classifier[1] = nn.Linear(in_features, num_classes)
-        return model
-
-    if model_name == "mobilenet_v3_large":
-        try:
-            weights = MobileNet_V3_Large_Weights.DEFAULT
-            model = mobilenet_v3_large(weights=weights)
-        except Exception:
-            model = mobilenet_v3_large(weights=None)
-        in_features = model.classifier[3].in_features
-        model.classifier[3] = nn.Linear(in_features, num_classes)
-        return model
-
+    if model_name == "paper_cnn":
+        return PaperCNN(num_classes=num_classes)
     raise ValueError(f"Unsupported model: {model_name}")
 
 
 def build_transforms(image_size: int) -> tuple[transforms.Compose, transforms.Compose]:
     train_transform = transforms.Compose(
         [
-            transforms.RandomResizedCrop(image_size, scale=(0.75, 1.0)),
+            transforms.Resize((image_size, image_size)),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(10),
-            transforms.ColorJitter(
-                brightness=0.2,
-                contrast=0.2,
-                saturation=0.2,
-                hue=0.02,
-            ),
+            transforms.RandomRotation(15),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
             transforms.ToTensor(),
-            transforms.Normalize(mean=IMAGE_MEAN, std=IMAGE_STD),
         ]
     )
 
     eval_transform = transforms.Compose(
         [
-            transforms.Resize(256),
-            transforms.CenterCrop(image_size),
+            transforms.Resize((image_size, image_size)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=IMAGE_MEAN, std=IMAGE_STD),
         ]
     )
     return train_transform, eval_transform
@@ -157,12 +174,22 @@ def create_data_loaders(
     return loaders, sizes
 
 
+def l1_regularization(model: nn.Module, lambda_l1: float = 1e-5) -> torch.Tensor:
+    """L1 kernel regularization on convolution weights, as described in the paper."""
+    l1_loss = torch.tensor(0.0, device=next(model.parameters()).device)
+    for name, param in model.named_parameters():
+        if "weight" in name and "features" in name and param.dim() >= 2:
+            l1_loss = l1_loss + param.abs().sum()
+    return lambda_l1 * l1_loss
+
+
 def run_epoch(
     model: nn.Module,
     loader: DataLoader,
     criterion: nn.Module,
     device: torch.device,
     optimizer: torch.optim.Optimizer | None = None,
+    lambda_l1: float = 1e-5,
 ) -> tuple[float, float]:
     is_training = optimizer is not None
     model.train(is_training)
@@ -183,6 +210,7 @@ def run_epoch(
         loss = criterion(logits, labels)
 
         if is_training:
+            loss = loss + l1_regularization(model, lambda_l1)
             loss.backward()
             optimizer.step()
 
@@ -288,19 +316,19 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--model-name",
-        choices=["efficientnet_b0", "mobilenet_v3_large"],
-        default="efficientnet_b0",
-        help="Backbone to fine-tune.",
+        choices=["paper_cnn"],
+        default="paper_cnn",
+        help="Model architecture to train.",
     )
-    parser.add_argument("--epochs", type=int, default=6, help="Max training epochs.")
+    parser.add_argument("--epochs", type=int, default=50, help="Max training epochs.")
     parser.add_argument(
         "--batch-size", type=int, default=32, help="Batch size for train/eval."
     )
     parser.add_argument(
         "--learning-rate",
         type=float,
-        default=1e-4,
-        help="Learning rate for AdamW.",
+        default=1e-3,
+        help="Initial learning rate for Adam.",
     )
     parser.add_argument(
         "--num-workers",
@@ -311,8 +339,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--patience",
         type=int,
-        default=3,
-        help="Early stopping patience on validation accuracy.",
+        default=7,
+        help="Early stopping patience on validation loss.",
     )
     parser.add_argument(
         "--image-size",
@@ -356,17 +384,22 @@ def main() -> None:
     num_classes = len(class_map["classes"])
 
     model = build_model(args.model_name, num_classes=num_classes).to(device)
-    criterion = nn.CrossEntropyLoss(label_smoothing=0.05)
-    optimizer = AdamW(model.parameters(), lr=args.learning_rate, weight_decay=1e-4)
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Model: {args.model_name}")
+    print(f"Total params: {total_params:,} | Trainable: {trainable_params:,}")
+
+    criterion = nn.CrossEntropyLoss()
+    optimizer = Adam(model.parameters(), lr=args.learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode="min",
-        factor=0.3,
-        patience=1,
+        factor=0.5,
+        patience=3,
     )
 
     history_rows: list[dict[str, float | int]] = []
-    best_val_accuracy = 0.0
+    best_val_loss = float("inf")
     best_checkpoint_path = args.artifacts_dir / "best_model.pt"
     epochs_without_improvement = 0
 
@@ -410,8 +443,8 @@ def main() -> None:
             )
         )
 
-        if val_accuracy > best_val_accuracy:
-            best_val_accuracy = val_accuracy
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
             epochs_without_improvement = 0
             save_checkpoint(
                 model=model,
@@ -464,11 +497,14 @@ def main() -> None:
 
     metrics = {
         "model_name": args.model_name,
+        "architecture": "PaperCNN (Tamut et al., Aquac. J. 2025)",
         "device": str(device),
         "epochs_completed": int(len(history_df)),
-        "best_val_accuracy": best_val_accuracy,
+        "best_val_loss": best_val_loss,
         "test_accuracy": test_accuracy,
         "dataset_sizes": dataset_sizes,
+        "total_params": total_params,
+        "trainable_params": trainable_params,
         "average_test_confidence": float(np.mean(confidences)) if confidences else 0.0,
     }
     with (args.artifacts_dir / "metrics.json").open("w", encoding="utf-8") as file_handle:

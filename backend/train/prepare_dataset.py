@@ -10,9 +10,9 @@ from sklearn.model_selection import train_test_split
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 EXTENSION_PRIORITY = {".png": 3, ".jpg": 2, ".jpeg": 1}
-IMAGE_SIZE = 224
-IMAGE_MEAN = [0.485, 0.456, 0.406]
-IMAGE_STD = [0.229, 0.224, 0.225]
+IMAGE_SIZE = 150
+IMAGE_MEAN = [0.0, 0.0, 0.0]
+IMAGE_STD = [1.0, 1.0, 1.0]
 RANDOM_STATE = 42
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -220,20 +220,59 @@ def build_clean_manifest(
     return clean_df, summary
 
 
-def split_manifest(clean_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
-    train_df, holdout_df = train_test_split(
-        clean_df,
-        test_size=0.30,
-        random_state=RANDOM_STATE,
-        stratify=clean_df["class_index"],
-    )
+def build_raw_manifest(
+    raw_df: pd.DataFrame, diseases_lookup: dict[int, dict[str, object]]
+) -> pd.DataFrame:
+    """Keep every file without deduplication to match the paper's full 2444-image dataset."""
+    rows: list[dict[str, object]] = []
+    for _, record in raw_df.iterrows():
+        folder_name = record["folder_name"]
+        if folder_name not in CLASS_TO_DISEASE_ID:
+            continue
+        disease_id = CLASS_TO_DISEASE_ID[folder_name]
+        disease = diseases_lookup[disease_id]
+        rows.append(
+            {
+                "folder_name": folder_name,
+                "class_index": CLASS_ORDER.index(folder_name),
+                "disease_id": disease_id,
+                "disease_name": disease["name"],
+                "image_stem": record["stem"],
+                "file_path": record["file_path"],
+                "file_name": Path(str(record["file_path"])).name,
+                "extension": record["extension"],
+                "file_size": int(record["file_size"]),
+                "source_split": record["source_split"],
+            }
+        )
+    return pd.DataFrame(rows).sort_values(by=["class_index", "image_stem"]).reset_index(drop=True)
 
-    val_df, test_df = train_test_split(
-        holdout_df,
-        test_size=0.50,
-        random_state=RANDOM_STATE,
-        stratify=holdout_df["class_index"],
-    )
+
+def split_manifest(clean_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """Use the original Train/Test folder split to match the paper (70/30)."""
+    train_df = clean_df[clean_df["source_split"] == "Train"].copy()
+    test_full = clean_df[clean_df["source_split"] == "Test"].copy()
+
+    if train_df.empty or test_full.empty:
+        train_df, holdout_df = train_test_split(
+            clean_df,
+            test_size=0.30,
+            random_state=RANDOM_STATE,
+            stratify=clean_df["class_index"],
+        )
+        val_df, test_df = train_test_split(
+            holdout_df,
+            test_size=0.50,
+            random_state=RANDOM_STATE,
+            stratify=holdout_df["class_index"],
+        )
+    else:
+        val_df, test_df = train_test_split(
+            test_full,
+            test_size=0.50,
+            random_state=RANDOM_STATE,
+            stratify=test_full["class_index"],
+        )
 
     return {
         "train": train_df.sort_values(by=["class_index", "image_stem"]).reset_index(
@@ -267,7 +306,8 @@ def ensure_dataset_artifacts(
         )
 
     clean_df, clean_summary = build_clean_manifest(raw_df, diseases_lookup)
-    split_frames = split_manifest(clean_df)
+    full_df = build_raw_manifest(raw_df, diseases_lookup)
+    split_frames = split_manifest(full_df)
     csv_summary = resolve_train_csv(dataset_root / "Train.csv", dataset_root)
 
     paths = {

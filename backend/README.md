@@ -1,11 +1,13 @@
 # FastAPI Backend
 
-This backend serves the real fish disease classifier for the Flutter app.
+This backend serves the fish disease classifier for the Flutter app, implementing
+the custom CNN architecture from Tamut et al., *Aquac. J.* 2025, 5, 6.
+
 It uses:
 
-- a cleaned manifest generated from the dataset folders
-- a PyTorch training pipeline
-- an exported ONNX model
+- a dataset manifest generated from the original Train/Test folders (2444 images, 7 classes)
+- a PyTorch training pipeline reproducing the paper's CNN (150x150 input, 3 Conv2D layers, BatchNorm, Dropout, Dense(256), Softmax)
+- an exported ONNX model (8.40 MB, 2,201,639 parameters)
 - ONNX Runtime inference inside FastAPI
 
 ## Setup
@@ -41,7 +43,7 @@ This trains the classifier, evaluates it, and exports:
 - training metrics in `backend/train/artifacts/`
 
 ```bash
-.venv\Scripts\python.exe -m train.train_classifier --epochs 6
+.venv\Scripts\python.exe -m train.train_classifier --epochs 50
 ```
 
 ## Run The API
