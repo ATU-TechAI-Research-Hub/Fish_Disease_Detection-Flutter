@@ -46,8 +46,8 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>This app needs camera access to capture fish images for mock disease detection.</string>
+	<string>AquaScan needs camera access to capture fish images for AI-powered disease detection.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app needs photo library access to upload fish images for mock disease detection.</string>
+	<string>AquaScan needs photo library access to select fish images for AI-powered disease detection.</string>
 </dict>
 </plist>

@@ -52,3 +52,7 @@ backend/.venv/
 Freshwater_Fish_Disease_Aquaculture_in_south_asia/
 backend/train/artifacts/
 backend/app/ml/audit_summary.json
+
+# PowerPoint poster files
+*.pptx
+~$*.pptx

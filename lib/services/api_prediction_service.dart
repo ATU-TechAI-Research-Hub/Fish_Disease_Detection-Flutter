@@ -6,27 +6,54 @@ import 'package:http/http.dart' as http;
 import '../models/prediction_result_model.dart';
 
 class ApiPredictionService {
-  ApiPredictionService({String? baseUrl}) : baseUrl = baseUrl ?? _defaultBaseUrl();
+  ApiPredictionService({String? baseUrl})
+      : baseUrl = baseUrl ?? _defaultBaseUrl();
 
   final String baseUrl;
 
+  // ┌──────────────────────────────────────────────────────────┐
+  // │  PHYSICAL DEVICE: Replace with your PC's Wi-Fi IP.      │
+  // │  Run `ipconfig` and use the IPv4 address, e.g.:         │
+  // │     static const _lanIp = 'http://192.168.1.105:8000';  │
+  // └──────────────────────────────────────────────────────────┘
+  static const String _lanIp = 'http://192.168.1.74:8000';
+
   static String _defaultBaseUrl() {
     if (Platform.isAndroid) {
+      if (_lanIp.isNotEmpty) return _lanIp;
       return 'http://10.0.2.2:8000';
     }
     return 'http://127.0.0.1:8000';
   }
 
-  Future<PredictionResultModel> predictDiseaseFromImage(String imagePath) async {
+  Future<PredictionResultModel> predictDiseaseFromImage(
+      String imagePath) async {
+    final file = File(imagePath);
+    if (!await file.exists()) {
+      throw Exception('Image file not found at: $imagePath');
+    }
+
     final Uri uri = Uri.parse('$baseUrl/predict');
     final http.MultipartRequest request = http.MultipartRequest('POST', uri);
 
     request.files.add(await http.MultipartFile.fromPath('file', imagePath));
 
-    final http.StreamedResponse streamedResponse = await request.send().timeout(
-      const Duration(seconds: 12),
-    );
-    final String responseBody = await streamedResponse.stream.bytesToString();
+    final http.StreamedResponse streamedResponse;
+    try {
+      streamedResponse = await request.send().timeout(
+            const Duration(seconds: 30),
+          );
+    } on SocketException {
+      throw Exception(
+        'Cannot connect to backend at $baseUrl. '
+        'Make sure the server is running.',
+      );
+    } on HttpException catch (e) {
+      throw Exception('HTTP error: $e');
+    }
+
+    final String responseBody =
+        await streamedResponse.stream.bytesToString();
 
     if (streamedResponse.statusCode != 200) {
       throw Exception(
@@ -35,7 +62,8 @@ class ApiPredictionService {
       );
     }
 
-    final Map<String, dynamic> parsed = json.decode(responseBody) as Map<String, dynamic>;
+    final Map<String, dynamic> parsed =
+        json.decode(responseBody) as Map<String, dynamic>;
     return PredictionResultModel.fromJson(parsed);
   }
 }

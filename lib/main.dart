@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import 'screens/home_screen.dart';
+import 'screens/app_shell.dart';
+import 'theme/app_theme.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ),
+  );
   runApp(const FishDiseaseApp());
 }
 
@@ -12,13 +21,10 @@ class FishDiseaseApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Freshwater Fish Disease Aquaculture in South Asia',
+      title: 'AquaScan',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0D8B9E)),
-        useMaterial3: true,
-      ),
-      home: const HomeScreen(),
+      theme: AppTheme.light,
+      home: const AppShell(),
     );
   }
 }

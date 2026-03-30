@@ -11,8 +11,15 @@ class Disease(BaseModel):
     prevention: str
 
 
+class ClassProbability(BaseModel):
+    disease_id: int
+    disease_name: str
+    confidence: float
+
+
 class PredictionResponse(BaseModel):
     prediction: Disease
     confidence: float
     source: str
     filename: str
+    top_predictions: list[ClassProbability] = []

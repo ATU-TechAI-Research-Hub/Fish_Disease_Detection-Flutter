@@ -5,9 +5,9 @@ from pathlib import Path
 
 import numpy as np
 import onnxruntime as ort
-from PIL import Image
+from PIL import Image, ImageOps
 
-from app.models import Disease, PredictionResponse
+from app.models import ClassProbability, Disease, PredictionResponse
 
 
 class PredictionService:
@@ -22,8 +22,6 @@ class PredictionService:
         self._session: ort.InferenceSession | None = None
         self._input_name: str | None = None
         self._image_size = 150
-        self._mean = np.array([0.0, 0.0, 0.0], dtype=np.float32).reshape(1, 3, 1, 1)
-        self._std = np.array([1.0, 1.0, 1.0], dtype=np.float32).reshape(1, 3, 1, 1)
         self._class_map: dict[int, dict[str, object]] = {}
         self._runtime_source = "model-not-loaded"
         if self._model_file and self._class_map_file:
@@ -59,7 +57,7 @@ class PredictionService:
         with self._class_map_file.open("r", encoding="utf-8") as file_handle:
             class_map_payload = json.load(file_handle)
 
-        self._image_size = int(class_map_payload.get("image_size", 224))
+        self._image_size = int(class_map_payload.get("image_size", 150))
         classes = class_map_payload.get("classes", [])
         self._class_map = {
             int(class_info["class_index"]): class_info for class_info in classes
@@ -88,13 +86,10 @@ class PredictionService:
             for entry in os.environ.get("PATH", "").split(os.pathsep)
             if entry
         ]
-        return all(any((path_entry / dll_name).exists() for path_entry in path_entries) for dll_name in required_dlls)
-
-    def _resize_image(self, image: Image.Image) -> Image.Image:
-        width, height = image.size
-        if width == 0 or height == 0:
-            raise ValueError("Image has invalid dimensions.")
-        return image.resize((self._image_size, self._image_size), Image.BILINEAR)
+        return all(
+            any((p / dll).exists() for p in path_entries)
+            for dll in required_dlls
+        )
 
     def _preprocess_image(self, image_bytes: bytes) -> np.ndarray:
         try:
@@ -102,11 +97,24 @@ class PredictionService:
         except Exception as exc:
             raise ValueError("Uploaded file is not a valid image.") from exc
 
-        cropped = self._resize_image(image)
-        image_array = np.asarray(cropped, dtype=np.float32) / 255.0
-        image_array = np.transpose(image_array, (2, 0, 1))[None, ...]
-        normalized = (image_array - self._mean) / self._std
-        return normalized.astype(np.float32)
+        image = ImageOps.exif_transpose(image)
+
+        w, h = image.size
+        if w == 0 or h == 0:
+            raise ValueError("Image has invalid dimensions.")
+
+        short_side = min(w, h)
+        left = (w - short_side) // 2
+        top = (h - short_side) // 2
+        image = image.crop((left, top, left + short_side, top + short_side))
+
+        image = image.resize(
+            (self._image_size, self._image_size), Image.LANCZOS
+        )
+
+        arr = np.asarray(image, dtype=np.float32) / 255.0
+        arr = np.transpose(arr, (2, 0, 1))[None, ...]
+        return arr
 
     async def predict(self, image_bytes: bytes, filename: str) -> PredictionResponse:
         if not self.model_ready:
@@ -125,6 +133,19 @@ class PredictionService:
         class_index = int(np.argmax(probabilities))
         confidence = float(probabilities[class_index])
 
+        top_indices = np.argsort(probabilities)[::-1][:3]
+        top_predictions: list[ClassProbability] = []
+        for idx in top_indices:
+            ci = self._class_map.get(int(idx))
+            if ci is not None:
+                top_predictions.append(
+                    ClassProbability(
+                        disease_id=int(ci["disease_id"]),
+                        disease_name=str(ci["disease_name"]),
+                        confidence=round(float(probabilities[idx]), 4),
+                    )
+                )
+
         class_info = self._class_map.get(class_index)
         if class_info is None:
             raise RuntimeError(f"Class index {class_index} not found in class_map.json.")
@@ -137,4 +158,5 @@ class PredictionService:
             confidence=round(confidence, 4),
             source=self._runtime_source,
             filename=filename,
+            top_predictions=top_predictions,
         )
