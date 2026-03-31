@@ -47,10 +47,7 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                         const Spacer(),
                         if (entries.isNotEmpty)
                           GestureDetector(
-                            onTap: () {
-                              ScanHistoryService.instance.clear();
-                              setState(() {});
-                            },
+                            onTap: () => _confirmClear(context),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 6),
@@ -107,6 +104,32 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
     );
   }
 
+  Future<void> _confirmClear(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Clear History'),
+        content: const Text('Remove all scan records? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.coral),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      ScanHistoryService.instance.clear();
+      setState(() {});
+    }
+  }
+
   Widget _buildEmpty(BuildContext context) {
     return Center(
       child: Column(
@@ -147,7 +170,10 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
       onTap: () async {
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
-            builder: (_) => ResultScreen(imagePath: entry.imagePath),
+            builder: (_) => ResultScreen(
+              imagePath: entry.imagePath,
+              existingResult: entry.result,
+            ),
           ),
         );
         if (mounted) setState(() {});

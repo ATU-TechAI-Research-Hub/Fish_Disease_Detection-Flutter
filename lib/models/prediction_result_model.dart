@@ -29,6 +29,7 @@ class PredictionResultModel {
     required this.confidence,
     required this.source,
     required this.filename,
+    this.inferenceMs = 0,
     this.topPredictions = const [],
   });
 
@@ -36,10 +37,12 @@ class PredictionResultModel {
   final double confidence;
   final String source;
   final String filename;
+  final double inferenceMs;
   final List<ClassProbability> topPredictions;
 
   factory PredictionResultModel.fromJson(Map<String, dynamic> json) {
     final dynamic rawConfidence = json['confidence'];
+    final dynamic rawInferenceMs = json['inference_ms'];
     final List<dynamic> topList =
         json['top_predictions'] as List<dynamic>? ?? [];
 
@@ -52,6 +55,9 @@ class PredictionResultModel {
           : double.tryParse(rawConfidence?.toString() ?? '') ?? 0,
       source: json['source']?.toString() ?? 'unknown',
       filename: json['filename']?.toString() ?? '',
+      inferenceMs: rawInferenceMs is num
+          ? rawInferenceMs.toDouble()
+          : double.tryParse(rawInferenceMs?.toString() ?? '') ?? 0,
       topPredictions: topList
           .map((e) =>
               ClassProbability.fromJson(e as Map<String, dynamic>))

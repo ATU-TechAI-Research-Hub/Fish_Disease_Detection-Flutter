@@ -22,4 +22,5 @@ class PredictionResponse(BaseModel):
     confidence: float
     source: str
     filename: str
+    inference_ms: float = 0.0
     top_predictions: list[ClassProbability] = []

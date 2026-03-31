@@ -11,9 +11,14 @@ import '../widgets/confidence_ring.dart';
 import '../widgets/wave_clipper.dart';
 
 class ResultScreen extends StatefulWidget {
-  const ResultScreen({required this.imagePath, super.key});
+  const ResultScreen({
+    required this.imagePath,
+    this.existingResult,
+    super.key,
+  });
 
   final String imagePath;
+  final PredictionResultModel? existingResult;
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
@@ -37,7 +42,13 @@ class _ResultScreenState extends State<ResultScreen>
       parent: _fadeController,
       curve: Curves.easeOut,
     );
-    _predictionFuture = _predict();
+
+    if (widget.existingResult != null) {
+      _predictionFuture = Future.value(widget.existingResult!);
+      _fadeController.forward();
+    } else {
+      _predictionFuture = _predict();
+    }
   }
 
   Future<PredictionResultModel> _predict() async {
@@ -172,8 +183,23 @@ class _ErrorView extends StatelessWidget {
   final String error;
   final VoidCallback onRetry;
 
+  bool get _isConnectionError {
+    final lower = error.toLowerCase();
+    return lower.contains('socket') ||
+        lower.contains('connect') ||
+        lower.contains('timeout') ||
+        lower.contains('connection');
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isConn = _isConnectionError;
+    final icon = isConn ? Icons.wifi_off_rounded : Icons.error_outline_rounded;
+    final title = isConn ? 'Connection Failed' : 'Analysis Failed';
+    final subtitle = isConn
+        ? 'Could not reach the backend server.\nMake sure it is running and try again.'
+        : 'Something went wrong during analysis.\nPlease try again with a different image.';
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -194,15 +220,13 @@ class _ErrorView extends StatelessWidget {
                 color: AppColors.coral.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(26),
               ),
-              child: const Icon(Icons.wifi_off_rounded,
-                  size: 42, color: AppColors.coral),
+              child: Icon(icon, size: 42, color: AppColors.coral),
             ),
             const SizedBox(height: 24),
-            Text('Connection Failed',
-                style: Theme.of(context).textTheme.headlineSmall),
+            Text(title, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 8),
             Text(
-              'Could not reach the backend server.\nMake sure it is running and try again.',
+              subtitle,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
@@ -255,7 +279,17 @@ class _ResultBody extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.file(File(imagePath), fit: BoxFit.cover),
+                      Image.file(
+                        File(imagePath),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: AppColors.deepOcean,
+                          child: const Center(
+                            child: Icon(Icons.image_not_supported_rounded,
+                                color: Colors.white54, size: 60),
+                          ),
+                        ),
+                      ),
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -335,6 +369,8 @@ class _ResultBody extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildConfidenceCard(context),
+                const SizedBox(height: 12),
+                _buildMetaRow(context),
                 if (result.topPredictions.length > 1) ...[
                   const SizedBox(height: 16),
                   _buildTopPredictions(context),
@@ -420,6 +456,21 @@ class _ResultBody extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildMetaRow(BuildContext context) {
+    final chips = <Widget>[];
+    if (result.inferenceMs > 0) {
+      chips.add(_MetaChip(
+        icon: Icons.speed_rounded,
+        label: '${result.inferenceMs.toStringAsFixed(0)} ms',
+      ));
+    }
+    chips.add(_MetaChip(
+      icon: Icons.memory_rounded,
+      label: result.source.replaceAll('onnxruntime-', '').toUpperCase(),
+    ));
+    return Wrap(spacing: 8, runSpacing: 8, children: chips);
   }
 
   Widget _buildTopPredictions(BuildContext context) {
@@ -575,6 +626,44 @@ class _ResultBody extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.wave,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.aqua.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.ocean),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ocean,
+              ),
             ),
           ),
         ],

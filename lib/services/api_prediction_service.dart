@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -11,11 +12,8 @@ class ApiPredictionService {
 
   final String baseUrl;
 
-  // ┌──────────────────────────────────────────────────────────┐
-  // │  PHYSICAL DEVICE: Replace with your PC's Wi-Fi IP.      │
-  // │  Run `ipconfig` and use the IPv4 address, e.g.:         │
-  // │     static const _lanIp = 'http://192.168.1.105:8000';  │
-  // └──────────────────────────────────────────────────────────┘
+  // Replace with your PC's Wi-Fi IP for physical device testing.
+  // Run `ipconfig` and use the IPv4 address.
   static const String _lanIp = 'http://192.168.1.74:8000';
 
   static String _defaultBaseUrl() {
@@ -35,7 +33,6 @@ class ApiPredictionService {
 
     final Uri uri = Uri.parse('$baseUrl/predict');
     final http.MultipartRequest request = http.MultipartRequest('POST', uri);
-
     request.files.add(await http.MultipartFile.fromPath('file', imagePath));
 
     final http.StreamedResponse streamedResponse;
@@ -45,8 +42,12 @@ class ApiPredictionService {
           );
     } on SocketException {
       throw Exception(
-        'Cannot connect to backend at $baseUrl. '
-        'Make sure the server is running.',
+        'Cannot connect to the server. '
+        'Make sure the backend is running at $baseUrl.',
+      );
+    } on TimeoutException {
+      throw Exception(
+        'Connection timed out. The server may be busy or unreachable.',
       );
     } on HttpException catch (e) {
       throw Exception('HTTP error: $e');

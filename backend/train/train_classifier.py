@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import random
 import shutil
 from pathlib import Path
@@ -12,7 +13,6 @@ import torch
 from PIL import Image, ImageFile
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from torch import nn
-from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from tqdm import tqdm
@@ -32,10 +32,26 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL_DIR = PROJECT_ROOT / "backend" / "app" / "ml"
 
 
+class CenterCropSquare:
+    """Center-crop to a square matching the short side, then resize."""
+
+    def __init__(self, size: int) -> None:
+        self.size = size
+
+    def __call__(self, img: Image.Image) -> Image.Image:
+        w, h = img.size
+        short = min(w, h)
+        left = (w - short) // 2
+        top = (h - short) // 2
+        img = img.crop((left, top, left + short, top + short))
+        return img.resize((self.size, self.size), Image.LANCZOS)
+
+
 class FishDiseaseDataset(Dataset):
-    def __init__(self, csv_path: Path, transform: transforms.Compose) -> None:
+    def __init__(self, csv_path: Path, transform: transforms.Compose, mixup_alpha: float = 0.0) -> None:
         self.frame = pd.read_csv(csv_path)
         self.transform = transform
+        self.mixup_alpha = mixup_alpha
 
     def __len__(self) -> int:
         return len(self.frame)
@@ -54,21 +70,30 @@ def seed_everything(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+def _compute_flatten_size(image_size: int) -> int:
+    """Compute the feature map size after 3 conv+pool blocks dynamically."""
+    s = image_size
+    for k in (5, 3, 3):
+        s = s - k + 1       # conv with no padding
+        s = s // 2           # maxpool 2x2, stride 2
+    return 32 * s * s
 
 
 class PaperCNN(nn.Module):
-    """Custom CNN architecture from the research paper (Tamut et al., Aquac. J. 2025).
+    """Custom CNN from Tamut et al., Aquac. J. 2025 (Table 1), with improvements.
 
-    Architecture (Table 1 of the paper):
+    Architecture:
       Conv2D(128, 5x5) -> ReLU -> MaxPool(2x2) -> BatchNorm -> Dropout(0.25)
       Conv2D(64, 3x3)  -> ReLU -> MaxPool(2x2) -> BatchNorm -> Dropout(0.25)
       Conv2D(32, 3x3)  -> ReLU -> MaxPool(2x2) -> BatchNorm -> Dropout(0.25)
-      Flatten -> Dense(256, ReLU) -> Dropout(0.5) -> Dense(7, Softmax)
-
-    Uses L1 kernel regularization via external weight decay on conv weights.
+      Flatten -> Dense(256, ReLU) -> Dropout(0.5) -> Dense(num_classes)
     """
 
-    def __init__(self, num_classes: int = 7) -> None:
+    def __init__(self, num_classes: int = 7, image_size: int = 150) -> None:
         super().__init__()
 
         self.features = nn.Sequential(
@@ -91,9 +116,10 @@ class PaperCNN(nn.Module):
             nn.Dropout2d(0.25),
         )
 
+        flat = _compute_flatten_size(image_size)
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(32 * 16 * 16, 256),
+            nn.Linear(flat, 256),
             nn.ReLU(inplace=True),
             nn.Dropout(0.5),
             nn.Linear(256, num_classes),
@@ -105,30 +131,59 @@ class PaperCNN(nn.Module):
         return x
 
 
-def build_model(model_name: str, num_classes: int) -> nn.Module:
+def build_model(model_name: str, num_classes: int, image_size: int = 150) -> nn.Module:
     if model_name == "paper_cnn":
-        return PaperCNN(num_classes=num_classes)
+        return PaperCNN(num_classes=num_classes, image_size=image_size)
     raise ValueError(f"Unsupported model: {model_name}")
 
 
 def build_transforms(image_size: int) -> tuple[transforms.Compose, transforms.Compose]:
     train_transform = transforms.Compose(
         [
-            transforms.Resize((image_size, image_size)),
+            CenterCropSquare(image_size),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(15),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+            transforms.RandomVerticalFlip(p=0.3),
+            transforms.RandomRotation(20),
+            transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.05),
+            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),
+            transforms.RandomGrayscale(p=0.05),
             transforms.ToTensor(),
+            transforms.RandomErasing(p=0.15, scale=(0.02, 0.15)),
         ]
     )
 
     eval_transform = transforms.Compose(
         [
-            transforms.Resize((image_size, image_size)),
+            CenterCropSquare(image_size),
             transforms.ToTensor(),
         ]
     )
     return train_transform, eval_transform
+
+
+def mixup_data(
+    x: torch.Tensor, y: torch.Tensor, alpha: float = 0.2
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, float]:
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1.0
+    batch_size = x.size(0)
+    index = torch.randperm(batch_size, device=x.device)
+    mixed_x = lam * x + (1 - lam) * x[index]
+    return mixed_x, y, y[index], lam
+
+
+def compute_class_weights(csv_path: Path, num_classes: int, device: torch.device) -> torch.Tensor:
+    """Compute inverse-frequency class weights for imbalanced datasets."""
+    df = pd.read_csv(csv_path)
+    counts = df["class_index"].value_counts().sort_index()
+    total = len(df)
+    weights = torch.zeros(num_classes, dtype=torch.float32)
+    for idx in range(num_classes):
+        c = counts.get(idx, 1)
+        weights[idx] = total / (num_classes * c)
+    return weights.to(device)
 
 
 def create_data_loaders(
@@ -154,6 +209,7 @@ def create_data_loaders(
             shuffle=True,
             num_workers=num_workers,
             pin_memory=pin_memory,
+            drop_last=True,
         ),
         "val": DataLoader(
             datasets["val"],
@@ -175,7 +231,6 @@ def create_data_loaders(
 
 
 def l1_regularization(model: nn.Module, lambda_l1: float = 1e-5) -> torch.Tensor:
-    """L1 kernel regularization on convolution weights, as described in the paper."""
     l1_loss = torch.tensor(0.0, device=next(model.parameters()).device)
     for name, param in model.named_parameters():
         if "weight" in name and "features" in name and param.dim() >= 2:
@@ -190,6 +245,8 @@ def run_epoch(
     device: torch.device,
     optimizer: torch.optim.Optimizer | None = None,
     lambda_l1: float = 1e-5,
+    mixup_alpha: float = 0.0,
+    scheduler_step_fn=None,
 ) -> tuple[float, float]:
     is_training = optimizer is not None
     model.train(is_training)
@@ -203,16 +260,29 @@ def run_epoch(
         images = images.to(device)
         labels = labels.to(device)
 
+        if is_training and mixup_alpha > 0:
+            images, targets_a, targets_b, lam = mixup_data(images, labels, mixup_alpha)
+        else:
+            targets_a = targets_b = labels
+            lam = 1.0
+
         if is_training:
             optimizer.zero_grad(set_to_none=True)
 
         logits = model(images)
-        loss = criterion(logits, labels)
+
+        if is_training and mixup_alpha > 0:
+            loss = lam * criterion(logits, targets_a) + (1 - lam) * criterion(logits, targets_b)
+        else:
+            loss = criterion(logits, labels)
 
         if is_training:
             loss = loss + l1_regularization(model, lambda_l1)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
+            if scheduler_step_fn is not None:
+                scheduler_step_fn()
 
         predictions = torch.argmax(logits, dim=1)
         batch_size = labels.size(0)
@@ -297,63 +367,28 @@ def parse_args() -> argparse.Namespace:
         description="Train and export the freshwater fish disease classifier."
     )
     parser.add_argument(
-        "--dataset-root",
-        type=Path,
-        default=DEFAULT_DATASET_ROOT,
-        help="Dataset root containing the Train/Test folders.",
+        "--dataset-root", type=Path, default=DEFAULT_DATASET_ROOT,
     )
     parser.add_argument(
-        "--artifacts-dir",
-        type=Path,
-        default=DEFAULT_ARTIFACTS_DIR,
-        help="Directory containing generated split CSVs and training outputs.",
+        "--artifacts-dir", type=Path, default=DEFAULT_ARTIFACTS_DIR,
     )
     parser.add_argument(
-        "--model-dir",
-        type=Path,
-        default=DEFAULT_MODEL_DIR,
-        help="Directory where the exported ONNX model and class map are saved.",
+        "--model-dir", type=Path, default=DEFAULT_MODEL_DIR,
     )
     parser.add_argument(
-        "--model-name",
-        choices=["paper_cnn"],
-        default="paper_cnn",
-        help="Model architecture to train.",
+        "--model-name", choices=["paper_cnn"], default="paper_cnn",
     )
-    parser.add_argument("--epochs", type=int, default=50, help="Max training epochs.")
-    parser.add_argument(
-        "--batch-size", type=int, default=32, help="Batch size for train/eval."
-    )
-    parser.add_argument(
-        "--learning-rate",
-        type=float,
-        default=1e-3,
-        help="Initial learning rate for Adam.",
-    )
-    parser.add_argument(
-        "--num-workers",
-        type=int,
-        default=0,
-        help="DataLoader workers. Keep 0 on Windows for reliability.",
-    )
-    parser.add_argument(
-        "--patience",
-        type=int,
-        default=7,
-        help="Early stopping patience on validation loss.",
-    )
-    parser.add_argument(
-        "--image-size",
-        type=int,
-        default=IMAGE_SIZE,
-        help="Input image size used for training and export.",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=RANDOM_STATE,
-        help="Random seed for reproducible splits and training.",
-    )
+    parser.add_argument("--epochs", type=int, default=80)
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--learning-rate", type=float, default=5e-4)
+    parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--num-workers", type=int, default=0)
+    parser.add_argument("--patience", type=int, default=12)
+    parser.add_argument("--image-size", type=int, default=IMAGE_SIZE)
+    parser.add_argument("--seed", type=int, default=RANDOM_STATE)
+    parser.add_argument("--label-smoothing", type=float, default=0.1)
+    parser.add_argument("--mixup-alpha", type=float, default=0.2)
+    parser.add_argument("--warmup-epochs", type=int, default=5)
     return parser.parse_args()
 
 
@@ -383,23 +418,44 @@ def main() -> None:
     )
     num_classes = len(class_map["classes"])
 
-    model = build_model(args.model_name, num_classes=num_classes).to(device)
+    class_weights = compute_class_weights(
+        args.artifacts_dir / "train_split.csv", num_classes, device
+    )
+    print(f"Class weights: {class_weights.tolist()}")
+
+    model = build_model(args.model_name, num_classes=num_classes, image_size=args.image_size).to(device)
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Model: {args.model_name}")
     print(f"Total params: {total_params:,} | Trainable: {trainable_params:,}")
 
-    criterion = nn.CrossEntropyLoss()
-    optimizer = Adam(model.parameters(), lr=args.learning_rate)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        mode="min",
-        factor=0.5,
-        patience=3,
+    criterion = nn.CrossEntropyLoss(
+        weight=class_weights, label_smoothing=args.label_smoothing,
     )
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay,
+    )
+
+    steps_per_epoch = len(loaders["train"])
+    total_steps = args.epochs * steps_per_epoch
+    warmup_steps = args.warmup_epochs * steps_per_epoch
+
+    def lr_lambda(step: int) -> float:
+        if step < warmup_steps:
+            return step / max(warmup_steps, 1)
+        progress = (step - warmup_steps) / max(total_steps - warmup_steps, 1)
+        return 0.5 * (1.0 + math.cos(math.pi * progress))
+
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+    step_counter = [0]
+
+    def scheduler_step_fn():
+        scheduler.step()
+        step_counter[0] += 1
 
     history_rows: list[dict[str, float | int]] = []
     best_val_loss = float("inf")
+    best_val_acc = 0.0
     best_checkpoint_path = args.artifacts_dir / "best_model.pt"
     epochs_without_improvement = 0
 
@@ -411,6 +467,8 @@ def main() -> None:
             criterion=criterion,
             device=device,
             optimizer=optimizer,
+            mixup_alpha=args.mixup_alpha,
+            scheduler_step_fn=scheduler_step_fn,
         )
         with torch.no_grad():
             val_loss, val_accuracy = run_epoch(
@@ -420,7 +478,6 @@ def main() -> None:
                 device=device,
             )
 
-        scheduler.step(val_loss)
         current_lr = float(optimizer.param_groups[0]["lr"])
         history_rows.append(
             {
@@ -435,16 +492,19 @@ def main() -> None:
 
         print(
             "train_loss={:.4f} train_acc={:.4f} val_loss={:.4f} val_acc={:.4f} lr={:.6f}".format(
-                train_loss,
-                train_accuracy,
-                val_loss,
-                val_accuracy,
-                current_lr,
+                train_loss, train_accuracy, val_loss, val_accuracy, current_lr,
             )
         )
 
+        improved = False
         if val_loss < best_val_loss:
             best_val_loss = val_loss
+            improved = True
+        if val_accuracy > best_val_acc:
+            best_val_acc = val_accuracy
+            improved = True
+
+        if improved:
             epochs_without_improvement = 0
             save_checkpoint(
                 model=model,
@@ -462,7 +522,7 @@ def main() -> None:
     history_df = pd.DataFrame(history_rows)
     history_df.to_csv(args.artifacts_dir / "training_history.csv", index=False)
 
-    checkpoint = torch.load(best_checkpoint_path, map_location=device)
+    checkpoint = torch.load(best_checkpoint_path, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint["state_dict"])
 
     labels, predictions, confidences = collect_predictions(
@@ -479,11 +539,8 @@ def main() -> None:
         )
     ]
     report = classification_report(
-        labels,
-        predictions,
-        target_names=target_names,
-        output_dict=True,
-        zero_division=0,
+        labels, predictions, target_names=target_names,
+        output_dict=True, zero_division=0,
     )
     confusion = confusion_matrix(labels, predictions)
 
@@ -497,15 +554,25 @@ def main() -> None:
 
     metrics = {
         "model_name": args.model_name,
-        "architecture": "PaperCNN (Tamut et al., Aquac. J. 2025)",
+        "architecture": "PaperCNN (Tamut et al., Aquac. J. 2025) - Enhanced",
         "device": str(device),
         "epochs_completed": int(len(history_df)),
         "best_val_loss": best_val_loss,
+        "best_val_accuracy": best_val_acc,
         "test_accuracy": test_accuracy,
         "dataset_sizes": dataset_sizes,
         "total_params": total_params,
         "trainable_params": trainable_params,
         "average_test_confidence": float(np.mean(confidences)) if confidences else 0.0,
+        "training_config": {
+            "learning_rate": args.learning_rate,
+            "weight_decay": args.weight_decay,
+            "label_smoothing": args.label_smoothing,
+            "mixup_alpha": args.mixup_alpha,
+            "warmup_epochs": args.warmup_epochs,
+            "optimizer": "AdamW",
+            "scheduler": "cosine_annealing_with_warmup",
+        },
     }
     with (args.artifacts_dir / "metrics.json").open("w", encoding="utf-8") as file_handle:
         json.dump(metrics, file_handle, indent=2)

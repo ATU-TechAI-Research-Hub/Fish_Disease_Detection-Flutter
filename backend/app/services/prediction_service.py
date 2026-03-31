@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import time
 from pathlib import Path
 
 import numpy as np
@@ -125,8 +126,10 @@ class PredictionService:
         assert self._session is not None
         assert self._input_name is not None
 
+        t0 = time.perf_counter()
         input_tensor = self._preprocess_image(image_bytes)
         logits = self._session.run(None, {self._input_name: input_tensor})[0][0]
+        inference_ms = (time.perf_counter() - t0) * 1000
         logits = np.asarray(logits, dtype=np.float32)
         exp_scores = np.exp(logits - np.max(logits))
         probabilities = exp_scores / np.sum(exp_scores)
@@ -158,5 +161,6 @@ class PredictionService:
             confidence=round(confidence, 4),
             source=self._runtime_source,
             filename=filename,
+            inference_ms=round(inference_ms, 1),
             top_predictions=top_predictions,
         )

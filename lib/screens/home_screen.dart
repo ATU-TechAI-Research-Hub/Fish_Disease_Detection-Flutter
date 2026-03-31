@@ -309,7 +309,11 @@ class _HomeScreenState extends State<HomeScreen> {
     required List<Color> colors,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
+    final isDisabled = onTap == null;
+    return AnimatedOpacity(
+      opacity: isDisabled ? 0.55 : 1.0,
+      duration: const Duration(milliseconds: 200),
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -368,6 +372,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 

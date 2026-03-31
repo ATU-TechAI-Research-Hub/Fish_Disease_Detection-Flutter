@@ -95,8 +95,51 @@ class _DiseaseLibraryScreenState extends State<DiseaseLibraryScreen> {
             child: FutureBuilder<List<DiseaseModel>>(
               future: _diseasesFuture,
               builder: (context, snapshot) {
-                if (!snapshot.hasData) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              color: AppColors.coral.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            child: const Icon(Icons.error_outline_rounded,
+                                size: 36, color: AppColors.coral),
+                          ),
+                          const SizedBox(height: 16),
+                          Text('Failed to load diseases',
+                              style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          Text(
+                            snapshot.error.toString(),
+                            textAlign: TextAlign.center,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton.icon(
+                            onPressed: () => setState(
+                                () => _diseasesFuture = _loadDiseases()),
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(child: Text('No diseases found.'));
                 }
                 final diseases = snapshot.data!;
                 return ListView.separated(
