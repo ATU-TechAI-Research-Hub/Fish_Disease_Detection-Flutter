@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../models/prediction_result_model.dart';
 
 class ScanEntry {
@@ -12,7 +14,7 @@ class ScanEntry {
   final DateTime timestamp;
 }
 
-class ScanHistoryService {
+class ScanHistoryService extends ChangeNotifier {
   ScanHistoryService._();
   static final ScanHistoryService instance = ScanHistoryService._();
 
@@ -30,7 +32,11 @@ class ScanHistoryService {
         timestamp: DateTime.now(),
       ),
     );
+    notifyListeners();
   }
 
-  void clear() => _entries.clear();
+  void clear() {
+    _entries.clear();
+    notifyListeners();
+  }
 }

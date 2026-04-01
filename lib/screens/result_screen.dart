@@ -61,7 +61,9 @@ class _ResultScreenState extends State<ResultScreen>
 
   void _retryPrediction() {
     _fadeController.reset();
-    setState(() => _predictionFuture = _predict());
+    setState(() {
+      _predictionFuture = _predict();
+    });
   }
 
   @override

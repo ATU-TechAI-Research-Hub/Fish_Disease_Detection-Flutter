@@ -16,6 +16,22 @@ class ScanHistoryScreen extends StatefulWidget {
 
 class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
   @override
+  void initState() {
+    super.initState();
+    ScanHistoryService.instance.addListener(_onHistoryChanged);
+  }
+
+  @override
+  void dispose() {
+    ScanHistoryService.instance.removeListener(_onHistoryChanged);
+    super.dispose();
+  }
+
+  void _onHistoryChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
     final entries = ScanHistoryService.instance.entries;
 
@@ -29,17 +45,17 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 30),
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    const Spacer(),
                     Row(
                       children: [
                         const Text(
                           'Scan History',
                           style: TextStyle(
-                            fontSize: 24,
+                            fontSize: 22,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
                           ),
@@ -59,13 +75,15 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.delete_sweep_rounded,
-                                      color: Colors.white.withValues(alpha: 0.8),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.8),
                                       size: 16),
                                   const SizedBox(width: 4),
                                   Text(
                                     'Clear',
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.8),
+                                      color:
+                                          Colors.white.withValues(alpha: 0.8),
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -80,7 +98,7 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                     Text(
                       '${entries.length} scan${entries.length == 1 ? '' : 's'} this session',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         color: Colors.white.withValues(alpha: 0.7),
                       ),
                     ),
@@ -96,7 +114,8 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                     itemCount: entries.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, i) => _buildTile(context, entries[i]),
+                    itemBuilder: (context, i) =>
+                        _buildTile(context, entries[i]),
                   ),
           ),
         ],
@@ -124,9 +143,8 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
         ],
       ),
     );
-    if (confirmed == true && mounted) {
+    if (confirmed == true) {
       ScanHistoryService.instance.clear();
-      setState(() {});
     }
   }
 
@@ -167,8 +185,8 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
     final dotColor = isHealthy ? AppColors.emerald : AppColors.coral;
 
     return GestureDetector(
-      onTap: () async {
-        await Navigator.of(context).push(
+      onTap: () {
+        Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => ResultScreen(
               imagePath: entry.imagePath,
@@ -176,7 +194,6 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
             ),
           ),
         );
-        if (mounted) setState(() {});
       },
       child: Container(
         padding: const EdgeInsets.all(12),

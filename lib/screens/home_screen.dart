@@ -210,30 +210,30 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(Icons.set_meal_rounded,
-                          color: Colors.white, size: 26),
+                          color: Colors.white, size: 22),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'AquaScan',
                           style: TextStyle(
-                            fontSize: 22,
+                            fontSize: 20,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
                             letterSpacing: -0.5,
@@ -242,36 +242,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         Text(
                           'Fish Disease Detection',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             color: Color(0xFFB0D9F0),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: AppColors.emerald.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.circle, color: AppColors.emerald, size: 7),
-                          SizedBox(width: 5),
-                          Text(
-                            'AI Ready',
-                            style: TextStyle(
-                              color: AppColors.emerald,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                   ],
                 ),
@@ -279,19 +255,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Text(
                   'Identify Fish Diseases\nwith AI in Seconds',
                   style: TextStyle(
-                    fontSize: 26,
+                    fontSize: 24,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
                     height: 1.2,
                     letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Row(
                   children: [
-                    _HeaderChip(label: '7 Classes', icon: Icons.category_rounded),
+                    _HeaderChip(
+                        label: '7 Classes', icon: Icons.category_rounded),
                     const SizedBox(width: 8),
-                    _HeaderChip(label: '95% Accuracy', icon: Icons.verified_rounded),
+                    _HeaderChip(
+                        label: '79% Accuracy', icon: Icons.verified_rounded),
                   ],
                 ),
               ],

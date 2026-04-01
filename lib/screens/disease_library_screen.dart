@@ -65,15 +65,15 @@ class _DiseaseLibraryScreenState extends State<DiseaseLibraryScreen> {
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 30),
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    const Spacer(),
                     const Text(
                       'Disease Library',
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: 22,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
                       ),
@@ -82,7 +82,7 @@ class _DiseaseLibraryScreenState extends State<DiseaseLibraryScreen> {
                     Text(
                       '7 detectable fish conditions',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         color: Colors.white.withValues(alpha: 0.7),
                       ),
                     ),
@@ -128,8 +128,11 @@ class _DiseaseLibraryScreenState extends State<DiseaseLibraryScreen> {
                           ),
                           const SizedBox(height: 16),
                           FilledButton.icon(
-                            onPressed: () => setState(
-                                () => _diseasesFuture = _loadDiseases()),
+                            onPressed: () {
+                              setState(() {
+                                _diseasesFuture = _loadDiseases();
+                              });
+                            },
                             icon: const Icon(Icons.refresh_rounded),
                             label: const Text('Retry'),
                           ),

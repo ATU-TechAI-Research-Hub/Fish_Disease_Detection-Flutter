@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../models/prediction_result_model.dart';
 
@@ -33,7 +34,21 @@ class ApiPredictionService {
 
     final Uri uri = Uri.parse('$baseUrl/predict');
     final http.MultipartRequest request = http.MultipartRequest('POST', uri);
-    request.files.add(await http.MultipartFile.fromPath('file', imagePath));
+
+    final ext = imagePath.split('.').last.toLowerCase();
+    final mimeType = switch (ext) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      'gif' => 'image/gif',
+      'bmp' => 'image/bmp',
+      _ => 'image/jpeg',
+    };
+    request.files.add(await http.MultipartFile.fromPath(
+      'file',
+      imagePath,
+      contentType: MediaType.parse(mimeType),
+    ));
 
     final http.StreamedResponse streamedResponse;
     try {

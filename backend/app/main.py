@@ -103,9 +103,6 @@ async def predict(file: UploadFile = File(...)) -> PredictionResponse:
     if not prediction_service:
         raise HTTPException(503, "Service not ready.")
 
-    if file.content_type and file.content_type not in ALLOWED_CONTENT_TYPES:
-        raise HTTPException(400, f"Unsupported image type: {file.content_type}. Accepted: JPEG, PNG, WebP, GIF, BMP.")
-
     contents = await file.read()
     await file.close()
 
@@ -113,6 +110,10 @@ async def predict(file: UploadFile = File(...)) -> PredictionResponse:
         raise HTTPException(400, "Uploaded file is empty.")
     if len(contents) > MAX_UPLOAD_BYTES:
         raise HTTPException(400, f"File too large ({len(contents) // 1024} KB). Max: {MAX_UPLOAD_BYTES // 1024 // 1024} MB.")
+
+    ct = (file.content_type or "").lower()
+    if ct and ct != "application/octet-stream" and ct not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(400, f"Unsupported image type: {ct}. Accepted: JPEG, PNG, WebP, GIF, BMP.")
 
     filename = file.filename or "uploaded_image"
     try:
