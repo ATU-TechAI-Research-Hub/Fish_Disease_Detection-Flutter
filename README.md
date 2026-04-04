@@ -1,6 +1,6 @@
-# AI-Powered Fish Disease Detection
+# AquaScan — AI-Powered Fish Disease Detection
 
-Flutter + FastAPI application for freshwater fish disease detection, implementing the custom CNN architecture from [Tamut et al., *Aquac. J.* 2025, 5, 6](https://doi.org/10.3390/aquacj5010006).
+Flutter + FastAPI mobile application for freshwater fish disease detection, implementing the custom CNN architecture from [Tamut et al., *Aquac. J.* 2025, 5, 6](https://doi.org/10.3390/aquacj5010006).
 
 ## Project Overview
 
@@ -8,11 +8,9 @@ Flutter + FastAPI application for freshwater fish disease detection, implementin
 |-------|-----------|---------|
 | **Frontend** | Flutter (Dart) | Mobile app — capture/upload fish images, display results |
 | **Backend** | FastAPI (Python) | REST API — receives images, runs AI inference, returns predictions |
-| **ML Model** | Custom CNN → ONNX | 3 Conv2D blocks, 2.2M params, 7-class classifier (8.4 MB) |
+| **ML Model** | Custom CNN → ONNX | 3 Conv2D blocks (PaperCNN), 7-class classifier (~8.4 MB) |
 | **Training** | PyTorch + CUDA | GPU-accelerated training on 2,444 fish images |
-| **Dataset** | Kaggle (South Asian freshwater fish) | 7 disease classes, original Train/Test split preserved |
-
-**Achieved: 95.4% test accuracy**
+| **Dataset** | [Kaggle](https://www.kaggle.com/datasets/subirbiswas19/freshwater-fish-disease-aquaculture-in-south-asia) (South Asian freshwater fish) | 7 disease classes, original Train/Test split preserved |
 
 ---
 
@@ -25,8 +23,8 @@ Install these before starting:
 | **Python** | 3.11+ | https://www.python.org/downloads/ |
 | **Flutter SDK** | 3.3+ | https://docs.flutter.dev/get-started/install |
 | **Git** | any | https://git-scm.com/downloads |
-| **Android Studio** or **VS Code** | latest | For Flutter device/emulator |
-| **NVIDIA GPU drivers** | latest *(optional)* | For CUDA-accelerated training |
+| **Android Studio** or **VS Code** | latest | For Flutter device/emulator setup |
+| **NVIDIA GPU + CUDA** | *(optional)* | For faster training — CPU works too |
 
 Verify installations:
 
@@ -47,23 +45,23 @@ Aquaculture/
 ├── lib/                               # Flutter frontend
 │   ├── main.dart                      # App entry point
 │   ├── models/
-│   │   ├── disease_model.dart         # Disease data model
+│   │   ├── disease_model.dart
 │   │   └── prediction_result_model.dart
 │   ├── screens/
 │   │   ├── app_shell.dart             # Bottom navigation shell
 │   │   ├── home_screen.dart           # Home — scan buttons
 │   │   ├── result_screen.dart         # Prediction result display
-│   │   ├── disease_library_screen.dart # Disease encyclopedia
-│   │   └── scan_history_screen.dart   # Past scan history
+│   │   ├── disease_library_screen.dart
+│   │   └── scan_history_screen.dart
 │   ├── services/
 │   │   ├── api_prediction_service.dart # HTTP client to backend
 │   │   └── scan_history_service.dart   # In-memory scan history
 │   ├── theme/
-│   │   └── app_theme.dart             # App-wide theme & colors
+│   │   └── app_theme.dart
 │   └── widgets/
 │       ├── confidence_ring.dart       # Animated confidence gauge
-│       ├── gradient_card.dart         # Gradient action card
-│       └── shimmer_loading.dart       # Shimmer placeholder
+│       ├── bubble_background.dart     # Floating bubble decoration
+│       └── wave_clipper.dart          # Wave-shaped header clipper
 ├── backend/
 │   ├── requirements.txt               # Python dependencies
 │   ├── run_backend.bat                # One-click Windows launcher
@@ -71,14 +69,14 @@ Aquaculture/
 │   │   ├── main.py                    # FastAPI app + routes
 │   │   ├── models.py                  # Pydantic response models
 │   │   ├── ml/
-│   │   │   ├── fish_disease_classifier.onnx  # Trained model
+│   │   │   ├── fish_disease_classifier.onnx  # Trained ONNX model
 │   │   │   └── class_map.json                # Class index → disease mapping
 │   │   └── services/
-│   │       └── prediction_service.py  # ONNX inference logic
+│   │       └── prediction_service.py  # ONNX inference + preprocessing
 │   ├── train/
 │   │   ├── prepare_dataset.py         # Dataset scanning & splitting
 │   │   ├── train_classifier.py        # PyTorch training pipeline
-│   │   └── export_model.py            # ONNX export utility
+│   │   └── export_model.py            # Standalone ONNX export
 │   └── tests/
 │       └── smoke_test.py              # Backend API smoke test
 ├── Freshwater_Fish_Disease_Aquaculture_in_south_asia/  # Dataset (not in repo)
@@ -91,14 +89,20 @@ Aquaculture/
 │   │   ├── Parasitic diseases/
 │   │   └── Viral diseases White tail disease/
 │   └── Test/                          # 697 test images
-│       └── (same 7 folders)
-├── pubspec.yaml                       # Flutter dependencies
-└── README.md                          # This file
+│       └── (same 7 subfolders)
+├── pubspec.yaml
+└── README.md
 ```
 
 ---
 
-## Complete Step-by-Step Setup
+## Complete Step-by-Step Guide
+
+> **Just want to run the app?** If the ONNX model is already in `backend/app/ml/`, skip to [Step 3](#step-3--set-up-the-python-backend).
+>
+> **Want to retrain the model?** Follow every step from [Step 1](#step-1--clone-the-repository).
+
+---
 
 ### Step 1 — Clone the Repository
 
@@ -109,13 +113,14 @@ cd Fish_Disease_Detection-Flutter
 
 ---
 
-### Step 2 — Download the Dataset
+### Step 2 — Download the Kaggle Dataset (Required for Training Only)
 
-Download the **Freshwater Fish Disease Aquaculture in South Asia** dataset from Kaggle:
+> **Skip this step** if you only want to run the app with the pre-trained model.
 
-https://www.kaggle.com/datasets/subirbiswas19/freshwater-fish-disease-aquaculture-in-south-asia
+1. Go to the Kaggle dataset page:
+   https://www.kaggle.com/datasets/subirbiswas19/freshwater-fish-disease-aquaculture-in-south-asia
 
-Place the extracted folder so the structure looks like this:
+2. Click **Download** and extract the ZIP into the project root so the folder structure is:
 
 ```
 Aquaculture/
@@ -135,9 +140,14 @@ Aquaculture/
         └── (same 7 subfolders)
 ```
 
-The dataset contains **2,444 total images** across 7 classes.
+The dataset contains **2,444 images** across 7 classes.
 
-> **Note:** If you only want to run the app (not retrain), you can skip this step — the pre-trained ONNX model is already included in `backend/app/ml/`.
+> **Alternative — Kaggle CLI:**
+> ```bash
+> pip install kaggle
+> kaggle datasets download -d subirbiswas19/freshwater-fish-disease-aquaculture-in-south-asia
+> ```
+> Then unzip into the project root.
 
 ---
 
@@ -149,71 +159,65 @@ Open a terminal and navigate to the `backend` folder:
 cd backend
 ```
 
-**3a. Create a Python virtual environment:**
+**3a. Create a virtual environment:**
 
 ```bash
 python -m venv .venv
 ```
 
-**3b. Activate the virtual environment:**
+**3b. Activate it:**
 
-Windows (PowerShell):
-```powershell
-.venv\Scripts\Activate.ps1
-```
+| OS | Command |
+|----|---------|
+| Windows (PowerShell) | `.venv\Scripts\Activate.ps1` |
+| Windows (CMD) | `.venv\Scripts\activate.bat` |
+| macOS / Linux | `source .venv/bin/activate` |
 
-Windows (Command Prompt):
-```cmd
-.venv\Scripts\activate.bat
-```
-
-macOS / Linux:
-```bash
-source .venv/bin/activate
-```
-
-**3c. Install Python dependencies:**
+**3c. Install dependencies:**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-This installs: FastAPI, uvicorn, onnxruntime-gpu, PyTorch, torchvision, Pillow, pandas, scikit-learn, numpy, tqdm.
+This installs: FastAPI, uvicorn, ONNX Runtime, PyTorch, torchvision, Pillow, pandas, scikit-learn, numpy, tqdm.
 
 **3d. (Optional) Install CUDA-enabled PyTorch for GPU training:**
 
-If you have an NVIDIA GPU and want faster training:
+If you have an NVIDIA GPU:
 
 ```bash
 pip install --index-url https://download.pytorch.org/whl/cu128 torch torchvision
 ```
 
+> Without this, training works on CPU but takes significantly longer.
+
 ---
 
-### Step 4 — Prepare the Dataset (Only If Retraining)
+### Step 4 — Prepare the Dataset (Training Only)
 
-> **Skip this step** if you are using the pre-trained ONNX model already in `backend/app/ml/`.
+> **Skip this step** if you already have the ONNX model in `backend/app/ml/`.
 
-From the `backend` folder, run:
+From the `backend` folder (with the venv activated):
 
 ```bash
 python -m train.prepare_dataset
 ```
 
-On Windows without activating the venv, use the full path:
+**Windows without activating the venv:**
 
 ```powershell
-& ".venv\Scripts\python.exe" -m train.prepare_dataset
+.venv\Scripts\python.exe -m train.prepare_dataset
 ```
 
 **What this does:**
-1. Scans `Freshwater_Fish_Disease_Aquaculture_in_south_asia/Train/` and `Test/` folders
+
+1. Scans the `Train/` and `Test/` folders for images
 2. Maps each subfolder to one of the 7 disease classes
-3. Splits the data: **1,747 training** / **348 validation** / **349 test** images
-4. Generates artifacts in `backend/train/artifacts/`:
+3. Splits data: **1,747 train** / **348 validation** / **349 test**
+4. Writes artifacts to `backend/train/artifacts/`:
    - `class_map.json` — class index to disease ID mapping
    - `train_split.csv`, `val_split.csv`, `test_split.csv` — image manifests
-   - `dataset_summary.json` — dataset statistics
+   - `audit_summary.json` — dataset statistics
 
 **Expected output:**
 
@@ -226,76 +230,102 @@ Artifacts saved to backend\train\artifacts\
 
 ---
 
-### Step 5 — Train the CNN Model (Only If Retraining)
+### Step 5 — Train the CNN Model (Training Only)
 
-> **Skip this step** if you are using the pre-trained ONNX model already in `backend/app/ml/`.
+> **Skip this step** if you already have the ONNX model in `backend/app/ml/`.
 
-From the `backend` folder, run:
+From the `backend` folder:
 
 ```bash
-python -m train.train_classifier --epochs 50
+python -m train.train_classifier
 ```
 
-On Windows without activating the venv:
+**Windows without activating the venv:**
 
 ```powershell
-& ".venv\Scripts\python.exe" -m train.train_classifier --epochs 50
+.venv\Scripts\python.exe -m train.train_classifier
+```
+
+**Training defaults:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--epochs` | 80 | Maximum training epochs |
+| `--batch-size` | 32 | Batch size |
+| `--learning-rate` | 5e-4 | AdamW learning rate |
+| `--weight-decay` | 1e-4 | L2 regularization |
+| `--patience` | 12 | Early stopping patience |
+| `--image-size` | 150 | Input image resolution |
+| `--label-smoothing` | 0.1 | Label smoothing factor |
+| `--mixup-alpha` | 0.2 | Mixup augmentation strength |
+| `--warmup-epochs` | 5 | LR warmup epochs |
+
+**Custom training example (fewer epochs):**
+
+```bash
+python -m train.train_classifier --epochs 50 --batch-size 64 --learning-rate 8e-4
 ```
 
 **What this does:**
+
 1. Loads train/val/test splits from Step 4
-2. Builds the custom CNN model (PaperCNN architecture):
+2. Builds the PaperCNN model:
    - 3 Conv2D blocks (128 → 64 → 32 filters) with BatchNorm, MaxPool, Dropout
-   - Dense(256) → Dense(7, Softmax)
-   - 2,201,639 total parameters
-3. Trains for up to 50 epochs with:
-   - Adam optimizer (lr=0.001)
-   - CrossEntropy loss + L1 regularization
-   - ReduceLROnPlateau scheduler
-   - Early stopping (patience=10) on validation loss
-   - Data augmentation: horizontal flip, rotation ±15°, color jitter
-4. Evaluates on the test set
-5. Exports the trained model
+   - Dense(256) → Dense(7)
+   - ~2.2M parameters
+3. Trains with: AdamW optimizer, cosine annealing LR schedule with warmup, weighted cross-entropy with label smoothing, mixup augmentation, L1 regularization, gradient clipping
+4. Early stops when validation stops improving
+5. Evaluates on the held-out test set
+6. Exports the best model to ONNX
 
 **Output files:**
+
 | File | Location | Description |
 |------|----------|-------------|
 | `fish_disease_classifier.onnx` | `backend/app/ml/` | Trained ONNX model (~8.4 MB) |
 | `class_map.json` | `backend/app/ml/` | Class mapping for inference |
-| `metrics.json` | `backend/train/artifacts/` | Training metrics & accuracy |
+| `best_model.pt` | `backend/train/artifacts/` | PyTorch checkpoint |
+| `metrics.json` | `backend/train/artifacts/` | Final accuracy & training config |
+| `training_history.csv` | `backend/train/artifacts/` | Per-epoch train/val metrics |
+| `confusion_matrix.csv` | `backend/train/artifacts/` | Test set confusion matrix |
+| `classification_report.json` | `backend/train/artifacts/` | Per-class precision/recall/F1 |
 
 **Expected training output:**
 
 ```
-Using device: cuda (NVIDIA GeForce GTX 1660 Ti)
+Using device: cuda (NVIDIA GeForce RTX 3060)
 Model: PaperCNN | Parameters: 2,201,639
 
-Epoch  1/50 ▸ train_loss=1.42  train_acc=48.2%  val_loss=0.89  val_acc=67.5%
-Epoch  2/50 ▸ train_loss=0.81  train_acc=70.1%  val_loss=0.52  val_acc=82.3%
+Epoch  1/80 ▸ train_loss=1.42  train_acc=48.2%  val_loss=0.89  val_acc=67.5%  lr=1.0e-04
+Epoch  2/80 ▸ train_loss=0.81  train_acc=70.1%  val_loss=0.52  val_acc=82.3%  lr=3.0e-04
 ...
-Epoch 50/50 ▸ train_loss=0.08  train_acc=98.1%  val_loss=0.15  val_acc=95.7%
-
-Test Accuracy: 95.4%
+Early stopping at epoch 65
+Test Accuracy: 79.4%
 Model exported to backend\app\ml\fish_disease_classifier.onnx (8.40 MB)
 ```
 
+> **Re-export only (no retraining):** If you have `best_model.pt` and just want to regenerate the ONNX file:
+> ```bash
+> python -m train.export_model
+> ```
+
 ---
 
-### Step 6 — Start the FastAPI Backend Server
+### Step 6 — Start the Backend Server
 
-From the `backend` folder, run:
+From the `backend` folder:
 
 ```bash
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-On Windows without activating the venv:
+**Windows without activating the venv:**
 
 ```powershell
-& ".venv\Scripts\python.exe" -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-**Or use the one-click launcher:**
+**Or use the one-click launcher (Windows):**
 
 ```cmd
 run_backend.bat
@@ -304,71 +334,50 @@ run_backend.bat
 **Expected output:**
 
 ```
+2026-02-25 10:00:00 | INFO | Loading prediction service...
+2026-02-25 10:00:01 | INFO | Model ready: True (provider: onnxruntime-cpu)
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to stop)
-INFO:     Started reloader process
-INFO:     Started server process
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
 ```
 
-**Verify the backend is running — open these URLs in your browser:**
+**Verify the backend — open in your browser:**
 
-| URL | Purpose |
-|-----|---------|
-| http://127.0.0.1:8000 | Base info page |
-| http://127.0.0.1:8000/health | Health check — shows `model_ready: true` |
-| http://127.0.0.1:8000/docs | Swagger UI — interactive API documentation |
-| http://127.0.0.1:8000/diseases | List all 7 disease classes as JSON |
+| URL | What You Should See |
+|-----|---------------------|
+| http://127.0.0.1:8000 | `"AquaScan Fish Disease Detection API is running."` |
+| http://127.0.0.1:8000/health | `"model_ready": true` |
+| http://127.0.0.1:8000/docs | Swagger UI — interactive API explorer |
+| http://127.0.0.1:8000/diseases | JSON list of all 7 diseases |
 
-**Health check response should look like:**
-
-```json
-{
-  "status": "ok",
-  "model_ready": true,
-  "source": "onnxruntime-cpu"
-}
-```
-
-> **Keep this terminal open.** The backend must be running while you use the Flutter app.
+> **Keep this terminal open.** The backend must stay running while you use the app.
 
 ---
 
-### Step 7 — Smoke Test the Backend (Optional)
+### Step 7 — Smoke Test (Optional)
 
-Open a **second terminal** (keep the backend running in the first). From the `backend` folder:
+Open a **second terminal** while the backend is running. From the `backend` folder:
 
 ```bash
-python tests/smoke_test.py --image-path "path\to\any\fish\image.jpg"
+python tests/smoke_test.py --image-path "..\Freshwater_Fish_Disease_Aquaculture_in_south_asia\Test\Bacterial Red disease\Bacterial Red disease (1).jpg"
 ```
 
-Example with a dataset image:
+**Windows without activating the venv:**
 
 ```powershell
-& ".venv\Scripts\python.exe" tests\smoke_test.py --image-path "..\Freshwater_Fish_Disease_Aquaculture_in_south_asia\Test\Bacterial Red disease\Bacterial Red disease (1).jpg"
+.venv\Scripts\python.exe tests\smoke_test.py --image-path "..\Freshwater_Fish_Disease_Aquaculture_in_south_asia\Test\Bacterial Red disease\Bacterial Red disease (1).jpg"
 ```
 
 **Expected output:**
 
 ```json
-Health: {
-  "status": "ok",
-  "model_ready": true,
-  "source": "onnxruntime-cpu"
-}
-Predict: {
+{
   "prediction": {
-    "id": 1,
     "name": "Bacterial Red Disease",
-    "type": "Bacterial",
-    "cause": "Usually caused by poor water quality...",
-    "symptoms": "Red patches on the body...",
-    "treatment": "Isolate infected fish...",
-    "prevention": "Maintain clean water..."
+    "type": "Bacterial"
   },
-  "confidence": 0.9823,
+  "confidence": 0.85,
   "source": "onnxruntime-cpu",
-  "filename": "Bacterial Red disease (1).jpg"
+  "inference_ms": 12.3,
+  "top_predictions": [...]
 }
 ```
 
@@ -378,119 +387,137 @@ Predict: {
 
 Open a **new terminal** at the project root (`Aquaculture/` folder):
 
-**8a. Install Flutter dependencies:**
-
 ```bash
 flutter pub get
 ```
 
-**8b. Check your Flutter environment:**
+Verify your environment:
 
 ```bash
 flutter doctor
 ```
 
-Make sure at least one target platform shows a green checkmark (Android, Chrome, Windows, etc.).
+Make sure at least one platform shows a green checkmark.
 
 ---
 
-### Step 9 — Run the Flutter App
+### Step 9 — Configure Backend URL for Your Device
 
-Make sure the backend server is still running (Step 6), then:
+The Flutter app needs to know where the backend is running. The configuration is in `lib/services/api_prediction_service.dart`:
 
-**Option A — Run on an Android emulator:**
+**For Android Emulator — no changes needed.** It uses `http://10.0.2.2:8000` automatically.
+
+**For a Physical Android Phone:**
+
+1. Find your computer's local IP address:
+
+   ```powershell
+   ipconfig
+   ```
+
+   Look for the **IPv4 Address** under your Wi-Fi adapter (e.g., `192.168.1.74`).
+
+2. Open `lib/services/api_prediction_service.dart` and update the `_lanIp` constant:
+
+   ```dart
+   static const String _lanIp = 'http://192.168.1.74:8000';  // ← Your PC's IP
+   ```
+
+3. Make sure your phone and computer are on the **same Wi-Fi network**.
+
+**For Windows/Chrome — no changes needed.** It uses `http://127.0.0.1:8000` automatically.
+
+---
+
+### Step 10 — Run the Flutter App
+
+Make sure the backend is running (Step 6), then:
+
+| Target | Command |
+|--------|---------|
+| **Physical Android phone** (USB) | `flutter run` → select your device |
+| **Android Emulator** | `flutter run` → select emulator |
+| **Chrome (web)** | `flutter run -d chrome` |
+| **Windows desktop** | `flutter run -d windows` |
+
+**For a physical Android phone:**
+
+1. Enable **Developer Options** on your phone (Settings → About → tap Build Number 7 times)
+2. Enable **USB Debugging** in Developer Options
+3. Connect via USB and accept the debugging prompt
+4. Run:
 
 ```bash
 flutter run
 ```
 
-Select the Android emulator when prompted. The app connects to the backend at `http://10.0.2.2:8000` (Android emulator's alias for the host machine's localhost).
-
-**Option B — Run on Chrome (web):**
-
-```bash
-flutter run -d chrome
-```
-
-The app connects to `http://127.0.0.1:8000`.
-
-**Option C — Run on Windows desktop:**
-
-```bash
-flutter run -d windows
-```
-
-The app connects to `http://127.0.0.1:8000`.
-
-**Option D — Run on a physical Android device:**
-
-1. Enable USB debugging on your phone
-2. Connect via USB
-3. Run `flutter run`
-4. **Important:** Your phone and computer must be on the same Wi-Fi network. Update the backend URL in `lib/services/api_prediction_service.dart` to your computer's local IP (e.g., `http://192.168.1.100:8000`).
+5. Select your phone from the device list when prompted.
 
 ---
 
-### Step 10 — Use the App
+### Step 11 — Scan a Fish!
 
-Once the app launches, you will see three tabs:
+Once the app launches on your device:
 
-**Home tab:**
-1. Tap **"Take a Photo"** to capture a live fish image with the camera
-2. Or tap **"Upload from Gallery"** to select an existing image
-3. The app sends the image to the backend for AI analysis
-4. Results appear with the disease name, confidence gauge, and treatment details
+1. **Home tab** → Tap **"Take a Photo"** or **"Upload from Gallery"**
+2. Point the camera at a fish (or select an image from the dataset for testing)
+3. Wait for the AI analysis (~1–2 seconds)
+4. View the result: disease name, confidence percentage, top-3 predictions, cause, symptoms, treatment, and prevention
 
-**Diseases tab:**
-- Browse all 7 detectable fish disease classes
-- Tap any disease to see its cause, symptoms, treatment, and prevention
+**Other tabs:**
 
-**History tab:**
-- View all past scan results from the current session
-- Tap any entry to see the full result again
-- Use "Clear" to reset the history
+- **Diseases** — Browse all 7 detectable conditions with details
+- **History** — View past scan results from the current session
 
 ---
 
-## End-to-End Data Flow
+## Command Summary (Copy-Paste Reference)
 
+### Full Setup (Training + Running)
+
+```powershell
+# Terminal 1 — Backend setup + training
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+# (Optional) GPU-accelerated PyTorch
+pip install --index-url https://download.pytorch.org/whl/cu128 torch torchvision
+
+# Prepare dataset
+python -m train.prepare_dataset
+
+# Train model (takes 10-30 min depending on GPU)
+python -m train.train_classifier
+
+# Start the server
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        HOW IT WORKS                                  │
-│                                                                      │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────────┐  │
-│  │  Camera/  │───▸│  Flutter  │───▸│  FastAPI  │───▸│  ONNX Model  │  │
-│  │  Gallery  │    │  Mobile   │    │  Backend  │    │  (CNN 8.4MB) │  │
-│  └──────────┘    │   App     │    │  Server   │    └──────┬───────┘  │
-│                  └─────┬─────┘    └─────┬─────┘           │          │
-│                        │                │                  │          │
-│                        │   HTTP POST    │    Inference     │          │
-│                        │   /predict     │    (150x150      │          │
-│                        │   multipart    │     → softmax)   │          │
-│                        │                │                  │          │
-│                  ┌─────▼─────┐    ┌─────▼─────┐    ┌──────▼───────┐  │
-│                  │  Display   │◂──│   JSON     │◂──│  Prediction  │  │
-│                  │  Results   │   │  Response  │   │  + Confidence│  │
-│                  └───────────┘    └───────────┘    └──────────────┘  │
-└─────────────────────────────────────────────────────────────────────┘
+
+```powershell
+# Terminal 2 — Flutter app
+cd ..
+flutter pub get
+flutter run
 ```
 
-**Detailed pipeline:**
+### Quick Start (Pre-trained Model Already Available)
 
-1. **User** takes a photo or selects an image from the gallery
-2. **Flutter app** sends the image as a multipart `POST /predict` request to the backend
-3. **FastAPI** receives the image bytes
-4. **Prediction service** preprocesses the image:
-   - Resize to 150 × 150 pixels
-   - Convert to RGB float array
-   - Normalize pixel values to [0, 1] (divide by 255)
-   - Transpose to CHW format (channels first)
-5. **ONNX Runtime** loads the CNN model and runs inference
-6. **Softmax** converts logits to class probabilities
-7. **Class map** translates the predicted class index to a disease ID
-8. **Disease metadata** from `diseases.json` provides name, cause, symptoms, treatment, prevention
-9. **JSON response** is returned with the disease details + confidence score + runtime source
-10. **Flutter app** displays the result: disease name, animated confidence ring, info cards
+```powershell
+# Terminal 1 — Backend
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+```powershell
+# Terminal 2 — Flutter
+flutter pub get
+flutter run
+```
 
 ---
 
@@ -498,21 +525,19 @@ Once the app launches, you will see three tabs:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/` | Base info and available endpoints |
-| `GET` | `/health` | Health check — model status and runtime |
+| `GET` | `/` | API info and available endpoints |
+| `GET` | `/health` | Health check — model status and runtime provider |
 | `GET` | `/diseases` | List all 7 disease classes |
-| `POST` | `/predict` | Upload an image (`file` field) → get prediction |
-| `GET` | `/docs` | Swagger UI (interactive API docs) |
-| `GET` | `/redoc` | ReDoc (alternative API docs) |
+| `POST` | `/predict` | Upload image (`file` field, max 15 MB) → prediction |
+| `GET` | `/docs` | Swagger UI (interactive API documentation) |
 
-**`POST /predict` request:**
+**Example `curl` request:**
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/predict" \
-  -F "file=@path/to/fish_image.jpg"
+curl -X POST "http://127.0.0.1:8000/predict" -F "file=@fish_image.jpg"
 ```
 
-**Response format:**
+**Response:**
 
 ```json
 {
@@ -525,15 +550,21 @@ curl -X POST "http://127.0.0.1:8000/predict" \
     "treatment": "Isolate infected fish...",
     "prevention": "Maintain clean water..."
   },
-  "confidence": 0.9823,
+  "confidence": 0.85,
   "source": "onnxruntime-cpu",
-  "filename": "fish_image.jpg"
+  "filename": "fish_image.jpg",
+  "inference_ms": 12.3,
+  "top_predictions": [
+    {"disease_id": 1, "disease_name": "Bacterial Red Disease", "confidence": 0.85},
+    {"disease_id": 6, "disease_name": "Parasitic Disease", "confidence": 0.08},
+    {"disease_id": 2, "disease_name": "Bacterial Aeromoniasis", "confidence": 0.04}
+  ]
 }
 ```
 
 ---
 
-## Disease Classes (7)
+## Disease Classes
 
 | # | Class | Type |
 |---|-------|------|
@@ -547,20 +578,21 @@ curl -X POST "http://127.0.0.1:8000/predict" \
 
 ---
 
-## Model Details
+## Model Architecture
 
 | Property | Value |
 |----------|-------|
-| Architecture | Custom CNN (Tamut et al., 2025) |
-| Input size | 150 × 150 × 3 (RGB) |
-| Conv blocks | 3 (128 → 64 → 32 filters) |
-| Classifier | Dense(256) → Dense(7) |
-| Parameters | 2,201,639 |
+| Architecture | PaperCNN (Tamut et al., 2025) |
+| Input | 150 × 150 × 3 (RGB, center-cropped) |
+| Conv blocks | 3 — Conv2D(128, 5×5) → Conv2D(64, 3×3) → Conv2D(32, 3×3) |
+| Each block | Conv → BatchNorm → ReLU → MaxPool(2×2) → Dropout |
+| Classifier | Flatten → Dense(256) → ReLU → Dropout(0.5) → Dense(7) |
+| Parameters | ~2.2M |
 | ONNX size | ~8.4 MB |
-| Test accuracy | 95.4% |
-| Training GPU | NVIDIA GTX 1660 Ti |
-| Framework | PyTorch → ONNX export |
-| Inference | ONNX Runtime (CPU or CUDA) |
+| Optimizer | AdamW (lr=5e-4, weight_decay=1e-4) |
+| Scheduler | Cosine annealing with 5-epoch warmup |
+| Augmentation | HFlip, VFlip, Rotation, ColorJitter, Affine, Grayscale, RandomErasing, Mixup |
+| Inference | ONNX Runtime (auto-selects CUDA if available, falls back to CPU) |
 
 ---
 
@@ -568,51 +600,34 @@ curl -X POST "http://127.0.0.1:8000/predict" \
 
 ### Backend won't start
 
-- Make sure you activated the virtual environment or use the full path to `.venv\Scripts\python.exe`
-- Check that port 8000 is not already in use: `netstat -ano | findstr :8000`
-- Verify the ONNX model exists: `dir backend\app\ml\fish_disease_classifier.onnx`
+- Make sure you activated the virtual environment
+- Check port 8000 is free: `netstat -ano | findstr :8000`
+- Verify ONNX model exists: `dir backend\app\ml\fish_disease_classifier.onnx`
 
-### `model_ready: false` at /health
+### `/health` shows `model_ready: false`
 
 - The ONNX model or `class_map.json` is missing from `backend/app/ml/`
-- Either retrain (Steps 4–5) or ensure the files were cloned properly
+- Run Steps 4–5 to train and export the model
 
 ### Flutter app shows "Connection Failed"
 
-- Make sure the backend is running (Step 6) before launching the Flutter app
-- On Android emulator, the app uses `http://10.0.2.2:8000` — this only works if the backend is on the same machine
-- On physical device, update the base URL in `lib/services/api_prediction_service.dart` to your computer's local IP
+- Make sure the backend is running (Step 6)
+- **Emulator**: Uses `http://10.0.2.2:8000` — backend must be on the same machine
+- **Physical phone**: Update `_lanIp` in `lib/services/api_prediction_service.dart` to your PC's IP, and make sure both devices are on the same Wi-Fi
 
-### CUDA / GPU not detected during training
+### 400 Bad Request from `/predict`
 
-- Install CUDA-enabled PyTorch: `pip install --index-url https://download.pytorch.org/whl/cu128 torch torchvision`
+- The image file may be empty, too large (>15 MB), or an unsupported format
+- Supported formats: JPEG, PNG, WebP, GIF, BMP
+
+### CUDA not detected during training
+
+- Install CUDA PyTorch: `pip install --index-url https://download.pytorch.org/whl/cu128 torch torchvision`
 - Training falls back to CPU automatically if CUDA is unavailable
 
 ### PowerShell `&&` operator error
 
-PowerShell versions before 7.0 don't support `&&`. Use `;` instead, or run commands one at a time.
-
----
-
-## Quick Start (TL;DR)
-
-If the ONNX model is already in `backend/app/ml/`, you only need two terminals:
-
-**Terminal 1 — Backend:**
-
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-**Terminal 2 — Flutter:**
-
-```bash
-flutter pub get
-flutter run
-```
+PowerShell versions before 7.0 don't support `&&`. Run commands one at a time, or use `;` as separator.
 
 ---
 
@@ -624,4 +639,4 @@ flutter run
 
 ## License
 
-This project was developed for academic research at Arkansas Tech University.
+This project was developed for academic research at Atlantic Technological University (ATU).
