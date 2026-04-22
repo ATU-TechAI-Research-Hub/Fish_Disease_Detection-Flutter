@@ -10,6 +10,10 @@ from PIL import Image, ImageOps
 
 from app.models import ClassProbability, Disease, PredictionResponse
 
+CONFIDENCE_THRESHOLD = 0.40
+ENTROPY_THRESHOLD = 1.6
+NO_FISH_DISEASE_ID = 0
+
 
 class PredictionService:
     def __init__(
@@ -39,7 +43,7 @@ class PredictionService:
         return [Disease.model_validate(item) for item in raw_data]
 
     def get_all_diseases(self) -> list[Disease]:
-        return self._diseases
+        return [d for d in self._diseases if d.id != NO_FISH_DISEASE_ID]
 
     @property
     def model_ready(self) -> bool:
@@ -117,6 +121,31 @@ class PredictionService:
         arr = np.transpose(arr, (2, 0, 1))[None, ...]
         return arr
 
+    @staticmethod
+    def _compute_entropy(probabilities: np.ndarray) -> float:
+        clipped = np.clip(probabilities, 1e-10, 1.0)
+        return float(-np.sum(clipped * np.log(clipped)))
+
+    def _build_no_fish_response(
+        self, filename: str, inference_ms: float, confidence: float,
+        top_predictions: list[ClassProbability],
+    ) -> PredictionResponse:
+        no_fish = self._disease_by_id.get(NO_FISH_DISEASE_ID)
+        if no_fish is None:
+            no_fish = Disease(
+                id=0, name="No Fish Detected", type="Unknown",
+                cause="Image not recognized.", symptoms="N/A",
+                treatment="Try a clearer fish photo.", prevention="N/A",
+            )
+        return PredictionResponse(
+            prediction=no_fish,
+            confidence=round(confidence, 4),
+            source=self._runtime_source,
+            filename=filename,
+            inference_ms=round(inference_ms, 1),
+            top_predictions=top_predictions,
+        )
+
     async def predict(self, image_bytes: bytes, filename: str) -> PredictionResponse:
         if not self.model_ready:
             raise RuntimeError(
@@ -148,6 +177,12 @@ class PredictionService:
                         confidence=round(float(probabilities[idx]), 4),
                     )
                 )
+
+        entropy = self._compute_entropy(probabilities)
+        if confidence < CONFIDENCE_THRESHOLD or entropy > ENTROPY_THRESHOLD:
+            return self._build_no_fish_response(
+                filename, inference_ms, confidence, top_predictions,
+            )
 
         class_info = self._class_map.get(class_index)
         if class_info is None:

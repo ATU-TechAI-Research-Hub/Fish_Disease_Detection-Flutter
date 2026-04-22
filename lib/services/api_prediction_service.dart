@@ -15,14 +15,14 @@ class ApiPredictionService {
 
   // Replace with your PC's Wi-Fi IP for physical device testing.
   // Run `ipconfig` and use the IPv4 address.
-  static const String _lanIp = 'http://192.168.1.74:8000';
+  static const String _lanIp = 'http://10.201.1.55:8001';
 
   static String _defaultBaseUrl() {
     if (Platform.isAndroid) {
       if (_lanIp.isNotEmpty) return _lanIp;
-      return 'http://10.0.2.2:8000';
+      return 'http://10.0.2.2:8001';
     }
-    return 'http://127.0.0.1:8000';
+    return 'http://127.0.0.1:8001';
   }
 
   Future<PredictionResultModel> predictDiseaseFromImage(

@@ -1,5 +1,14 @@
 [
   {
+    "id": 0,
+    "name": "No Fish Detected",
+    "type": "Unknown",
+    "cause": "The uploaded image does not appear to contain a recognizable freshwater fish, or the image quality is too low for reliable classification.",
+    "symptoms": "N/A — This is not a disease diagnosis. The AI model could not confidently identify a fish disease in this image.",
+    "treatment": "Please try again with a clearer photo of a freshwater fish. Ensure the fish is well-lit, in focus, and fills most of the frame.",
+    "prevention": "For best results, photograph the fish from the side against a plain background. Avoid blurry, dark, or zoomed-out images."
+  },
+  {
     "id": 1,
     "name": "Bacterial Red Disease",
     "type": "Bacterial",

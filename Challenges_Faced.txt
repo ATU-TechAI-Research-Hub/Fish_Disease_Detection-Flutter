@@ -1,0 +1,245 @@
+Challenges Faced While Building AquaScan
+=========================================
+
+
+1. Training the CNN Model Was Extremely Time-Consuming
+
+   Challenge:
+   Training the model was honestly one of the most frustrating parts of the
+   entire project. Each training run took anywhere from 30 minutes to over
+   an hour depending on the number of epochs, and when something went wrong
+   — which happened a lot — I had to start all over again. Early on, the
+   model was severely overfitting: it would hit 85% accuracy on training
+   data but drop to 38% on test images, which was basically useless. I
+   spent days tweaking hyperparameters, adjusting the learning rate,
+   adding data augmentation, trying different optimizers, and re-running
+   the training pipeline over and over. Every small change meant another
+   long wait to see if it actually helped. There were also constant errors
+   with tensor shape mismatches, deprecated PyTorch parameters, and CUDA
+   memory issues that would crash the training mid-way through.
+
+   Solution:
+   I switched from the basic Adam optimizer to AdamW with a cosine
+   annealing learning rate schedule that included a warmup phase for the
+   first few epochs. This gave the model a gentler start and helped it
+   converge more smoothly. To tackle the overfitting, I added stronger
+   data augmentation — horizontal flips, vertical flips, random rotation,
+   color jitter, random affine transforms, grayscale conversion, and
+   random erasing. I also introduced early stopping with a patience of 12
+   epochs so the training would automatically stop when the model stopped
+   improving, instead of me wasting time on unnecessary epochs. For the
+   tensor shape errors, I wrote a helper function that dynamically
+   calculates the flatten size based on the input image dimensions, so
+   the model architecture adjusts itself automatically.
+
+
+2. Integrating the CNN Model With Flutter Was Tough
+
+   Challenge:
+   Getting the trained model to actually work inside the Flutter app was
+   way harder than I expected. The model was trained in PyTorch, so I had
+   to export it to ONNX format, then serve it through a FastAPI backend,
+   and have the Flutter app communicate with it over HTTP. Each layer of
+   this pipeline had its own set of problems. The ONNX export would fail
+   silently or produce a model that gave completely different results than
+   the PyTorch version. The multipart image upload from Flutter kept
+   getting rejected by the backend with 400 Bad Request errors because
+   Android's image picker sends files with a generic content type instead
+   of "image/jpeg." Figuring out why the app was sending images correctly
+   on the emulator but failing on a real phone took a lot of trial and
+   error.
+
+   Solution:
+   I built the integration in layers and tested each one independently
+   before connecting them. First, I verified the ONNX export by running
+   inference on test images directly in Python and comparing the results
+   to PyTorch outputs. Then I built a smoke test script that sends an
+   image to the FastAPI endpoint and checks the response. For the 400
+   Bad Request issue, I added explicit MIME type detection on the Flutter
+   side using the http_parser package — the app now reads the file
+   extension and sets the correct content type (image/jpeg, image/png,
+   etc.) before uploading. On the backend side, I relaxed the validation
+   to accept "application/octet-stream" as a fallback, since the actual
+   image validity is checked during preprocessing anyway.
+
+
+3. Preprocessing Mismatch Between Training and Inference
+
+   Challenge:
+   This was probably the biggest hidden bug in the entire project. During
+   training, images were being stretched to 150x150 pixels, but during
+   inference on the backend, they were being center-cropped to a square
+   first and then resized. This meant the model was seeing fundamentally
+   different images at prediction time compared to what it was trained on.
+   The result was that real camera photos consistently got very low
+   confidence scores — sometimes below 30% — even when the disease was
+   clearly visible. It took a while to realize the issue was not with the
+   model itself but with how the images were being prepared.
+
+   Solution:
+   I wrote a custom CenterCropSquare transform class and applied it to
+   both the training and inference pipelines. Now both sides do the exact
+   same steps: take the image, crop it to a square from the center, resize
+   to 150x150 using LANCZOS resampling, convert to a float array, and
+   normalize by dividing by 255. I also added EXIF orientation handling on
+   the backend so that photos taken in portrait mode on a phone get
+   rotated correctly before processing. After aligning both pipelines, the
+   predictions became noticeably more accurate and consistent, and the
+   confidence scores on real camera images jumped significantly.
+
+
+4. Running the App on a Physical Android Device
+
+   Challenge:
+   Getting the app to work on my actual phone (Nothing A059) instead of
+   the emulator was a whole separate challenge. On the emulator, the app
+   could reach the backend at 10.0.2.2, but on a real phone, I had to
+   figure out my PC's local IP address and manually configure it in the
+   Flutter code. Then I had to make sure both devices were on the same
+   Wi-Fi network, enable cleartext HTTP traffic in the Android manifest,
+   and deal with USB debugging permissions. On top of that, the phone's
+   screen size was different from the emulator, which caused UI overflow
+   errors that never showed up during emulator testing — like the wave
+   header overflowing by 6.8 pixels and the bottom navigation bar not
+   fitting properly.
+
+   Solution:
+   I set up the Flutter API service with smart defaults — it automatically
+   uses 10.0.2.2 for emulators and a configurable LAN IP for physical
+   devices, so I only need to change one constant when switching between
+   test setups. I ran "ipconfig" to find my PC's IPv4 address and
+   hardcoded it as the LAN IP. I added android:usesCleartextTraffic="true"
+   to the AndroidManifest.xml to allow HTTP connections on the local
+   network. For the UI overflow, I replaced fixed-size layouts with
+   flexible ones using Spacer widgets, reduced padding and font sizes in
+   the wave headers, and tested on the actual phone after every UI change
+   to catch overflow issues immediately instead of discovering them later.
+
+
+5. Constant Dependency and Version Conflicts
+
+   Challenge:
+   Python dependency management was a recurring headache. At one point,
+   my system Python got updated to version 3.14, which broke the entire
+   backend because pydantic_core didn't have compiled binaries for that
+   version yet. The FastAPI server just refused to start with a cryptic
+   "No module named pydantic_core._pydantic_core" error. I had to figure
+   out that the issue was the Python version, not a missing package, and
+   recreate the virtual environment using Python 3.13 instead. There were
+   also issues with onnxruntime-gpu needing specific CUDA DLLs, PyTorch's
+   ReduceLROnPlateau removing its "verbose" parameter in newer versions,
+   and Flutter packages throwing symlink warnings on Windows.
+
+   Solution:
+   I used the Python Launcher (py -3.13) to explicitly create the virtual
+   environment with a known compatible Python version, bypassing the
+   system default. This guaranteed that all compiled packages like
+   pydantic_core and onnxruntime would have matching binary wheels. For
+   the deprecated PyTorch parameters, I checked the PyTorch changelog and
+   removed the unsupported arguments. I also set up the backend with a
+   run_backend.bat script that automatically creates the venv if missing
+   and installs dependencies, so anyone cloning the project can get
+   started without manually troubleshooting version issues.
+
+
+6. Handling Class Imbalance in the Dataset
+
+   Challenge:
+   The Kaggle dataset wasn't perfectly balanced — some disease classes had
+   more images than others. This caused the model to get lazy and just
+   predict the majority class most of the time. I had to implement
+   inverse-frequency class weights in the loss function so that
+   underrepresented classes got more importance during training. I also
+   added Mixup augmentation and label smoothing to prevent the model from
+   being too confident on any single class. These changes helped, but
+   getting the right combination of techniques took multiple training
+   runs to figure out.
+
+   Solution:
+   I wrote a compute_class_weights function that reads the training split
+   CSV, counts images per class, and calculates inverse-frequency weights.
+   These weights were passed directly to PyTorch's CrossEntropyLoss so
+   the model penalizes mistakes on rare classes more heavily. On top of
+   that, I added label smoothing at 0.05 so the model doesn't become
+   overconfident, and Mixup augmentation (alpha=0.1) which blends pairs
+   of training images together to create synthetic examples that help the
+   model generalize better. The combination of these three techniques
+   brought the per-class F1 scores much closer together and reduced the
+   gap between the best and worst performing classes.
+
+
+7. UI Overflow and Layout Issues on Different Screens
+
+   Challenge:
+   Flutter's layout system is powerful but unforgiving. The wave-shaped
+   headers I designed looked great on larger screens but overflowed on
+   my phone because SafeArea insets consumed more space than I accounted
+   for. The "AI Ready" badge, the navigation bar icons, and the text
+   sizes all had to be reduced and the padding adjusted to prevent
+   overflow errors. The scan history screen also had a bug where it
+   wouldn't update after a new scan because it was inside an IndexedStack
+   that doesn't rebuild child widgets when you switch tabs. I had to
+   refactor the history service into a ChangeNotifier so the screen could
+   listen for updates automatically.
+
+   Solution:
+   For the overflow, I reduced the header padding from 12/40 to 8/32,
+   shrank icon sizes from 24px to 22px, reduced font sizes, and added
+   Spacer widgets at the top of header columns so content pushes to the
+   bottom naturally instead of relying on fixed positioning. I removed
+   the "AI Ready" badge entirely to free up space in the header row. For
+   the scan history bug, I refactored ScanHistoryService to extend
+   Flutter's ChangeNotifier class. Now it calls notifyListeners() whenever
+   a scan is added or cleared, and the history screen subscribes via
+   addListener in initState. This means the history list updates in
+   real-time the moment a new scan completes, regardless of which tab
+   the user is on.
+
+
+8. setState() Returning a Future Warning
+
+   Challenge:
+   A subtle but annoying bug was that Flutter kept throwing "setState()
+   callback argument returned a Future" warnings in the console. This
+   happened because I was using arrow functions like
+   setState(() => _future = asyncMethod()) where the assignment
+   expression itself returned a Future. It didn't cause visible bugs but
+   cluttered the debug console and could potentially cause issues. The
+   fix was simple — change arrow functions to block bodies — but finding
+   all the instances across multiple screens took careful searching.
+
+   Solution:
+   I searched the entire codebase for every setState call that used an
+   arrow function returning an async result. The fix was straightforward:
+   change setState(() => _future = asyncMethod()) to
+   setState(() { _future = asyncMethod(); }) using a block body instead
+   of an arrow. The block body doesn't return the Future, so Flutter's
+   setState is happy. I found and fixed this in two places — the result
+   screen's retry function and the disease library's retry button. After
+   the fix, the debug console was clean with no more warnings.
+
+
+Lessons Learned
+===============
+
+- Always test on a real device from day one, not just the emulator.
+  Bugs like MIME type issues and UI overflows only appear on real hardware.
+
+- Preprocessing alignment between training and inference is critical.
+  The single biggest accuracy improvement came from making sure both
+  pipelines handle images in exactly the same way.
+
+- Version-pin your Python dependencies or at least use a known stable
+  Python version. A surprise system update can break everything.
+
+- Small, incremental improvements to the model are better than trying
+  to change everything at once. Each tweak (Mixup, class weights,
+  cosine annealing) added measurable gains without breaking what worked.
+
+- Build a smoke test early. Having a script that sends a test image to
+  the backend and checks the response saved me hours of debugging
+  during integration.
+
+- Document every step of your pipeline — future you will thank you
+  when something breaks at 2 AM and you can't remember which
+  preprocessing step changed.

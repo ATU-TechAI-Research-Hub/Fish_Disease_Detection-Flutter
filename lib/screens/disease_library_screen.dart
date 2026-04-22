@@ -28,6 +28,7 @@ class _DiseaseLibraryScreenState extends State<DiseaseLibraryScreen> {
     final List<dynamic> jsonList = json.decode(jsonStr) as List<dynamic>;
     return jsonList
         .map((item) => DiseaseModel.fromJson(item as Map<String, dynamic>))
+        .where((d) => !d.isUnknown)
         .toList();
   }
 

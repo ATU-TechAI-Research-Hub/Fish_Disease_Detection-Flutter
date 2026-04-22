@@ -263,10 +263,24 @@ class _ResultBody extends StatelessWidget {
   final PredictionResultModel result;
   final String imagePath;
 
+  Color get _badgeColor {
+    final d = result.disease;
+    if (d.isUnknown) return const Color(0xFF6B7280);
+    if (d.isHealthy) return AppColors.emerald;
+    return AppColors.coral;
+  }
+
+  String get _badgeLabel {
+    final d = result.disease;
+    if (d.isUnknown) return 'NOT RECOGNIZED';
+    if (d.isHealthy) return 'HEALTHY';
+    return d.type.toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final disease = result.disease;
-    final isHealthy = disease.isHealthy;
+    final isUnknown = disease.isUnknown;
 
     return CustomScrollView(
       slivers: [
@@ -319,11 +333,11 @@ class _ResultBody extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: isHealthy ? AppColors.emerald : AppColors.coral,
+                        color: _badgeColor,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        isHealthy ? 'HEALTHY' : disease.type.toUpperCase(),
+                        _badgeLabel,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -370,50 +384,140 @@ class _ResultBody extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildConfidenceCard(context),
-                const SizedBox(height: 12),
-                _buildMetaRow(context),
-                if (result.topPredictions.length > 1) ...[
-                  const SizedBox(height: 16),
-                  _buildTopPredictions(context),
+                if (isUnknown) ...[
+                  _buildNoFishCard(context),
+                  const SizedBox(height: 12),
+                  _buildMetaRow(context),
+                  if (result.topPredictions.length > 1) ...[
+                    const SizedBox(height: 16),
+                    _buildTopPredictions(context),
+                  ],
+                  const SizedBox(height: 20),
+                  _buildDetail(
+                    context,
+                    icon: Icons.info_outline_rounded,
+                    title: 'What Happened',
+                    text: disease.cause,
+                    color: const Color(0xFF6B7280),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDetail(
+                    context,
+                    icon: Icons.camera_alt_rounded,
+                    title: 'How to Get Better Results',
+                    text: disease.treatment,
+                    color: AppColors.seaBlue,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDetail(
+                    context,
+                    icon: Icons.tips_and_updates_rounded,
+                    title: 'Photography Tips',
+                    text: disease.prevention,
+                    color: AppColors.amber,
+                  ),
+                ] else ...[
+                  _buildConfidenceCard(context),
+                  const SizedBox(height: 12),
+                  _buildMetaRow(context),
+                  if (result.topPredictions.length > 1) ...[
+                    const SizedBox(height: 16),
+                    _buildTopPredictions(context),
+                  ],
+                  const SizedBox(height: 20),
+                  _buildDetail(
+                    context,
+                    icon: Icons.coronavirus_rounded,
+                    title: 'Cause',
+                    text: disease.cause,
+                    color: AppColors.seaBlue,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDetail(
+                    context,
+                    icon: Icons.warning_amber_rounded,
+                    title: 'Symptoms',
+                    text: disease.symptoms,
+                    color: AppColors.amber,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDetail(
+                    context,
+                    icon: Icons.medical_services_rounded,
+                    title: 'Treatment',
+                    text: disease.treatment,
+                    color: AppColors.purple,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDetail(
+                    context,
+                    icon: Icons.shield_rounded,
+                    title: 'Prevention',
+                    text: disease.prevention,
+                    color: AppColors.emerald,
+                  ),
                 ],
-                const SizedBox(height: 20),
-                _buildDetail(
-                  context,
-                  icon: Icons.coronavirus_rounded,
-                  title: 'Cause',
-                  text: disease.cause,
-                  color: AppColors.seaBlue,
-                ),
-                const SizedBox(height: 12),
-                _buildDetail(
-                  context,
-                  icon: Icons.warning_amber_rounded,
-                  title: 'Symptoms',
-                  text: disease.symptoms,
-                  color: AppColors.amber,
-                ),
-                const SizedBox(height: 12),
-                _buildDetail(
-                  context,
-                  icon: Icons.medical_services_rounded,
-                  title: 'Treatment',
-                  text: disease.treatment,
-                  color: AppColors.purple,
-                ),
-                const SizedBox(height: 12),
-                _buildDetail(
-                  context,
-                  icon: Icons.shield_rounded,
-                  title: 'Prevention',
-                  text: disease.prevention,
-                  color: AppColors.emerald,
-                ),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildNoFishCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.deepOcean.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(
+              Icons.search_off_rounded,
+              size: 32,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'No Fish Detected',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'The AI model could not confidently identify a fish disease '
+            'in this image. This could mean the image does not contain a '
+            'recognizable fish, or the photo quality is too low.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

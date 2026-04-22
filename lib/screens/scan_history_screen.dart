@@ -182,7 +182,12 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
     final pct = (entry.result.confidence * 100).toStringAsFixed(1);
     final timeAgo = _formatTime(entry.timestamp);
     final isHealthy = disease.isHealthy;
-    final dotColor = isHealthy ? AppColors.emerald : AppColors.coral;
+    final isUnknown = disease.isUnknown;
+    final dotColor = isUnknown
+        ? const Color(0xFF6B7280)
+        : isHealthy
+            ? AppColors.emerald
+            : AppColors.coral;
 
     return GestureDetector(
       onTap: () {
