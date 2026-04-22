@@ -101,6 +101,8 @@ Aquaculture/
 > **Just want to run the app?** If the ONNX model is already in `backend/app/ml/`, skip to [Step 3](#step-3--set-up-the-python-backend).
 >
 > **Want to retrain the model?** Follow every step from [Step 1](#step-1--clone-the-repository).
+>
+> **On macOS?** Jump to the [macOS Quick-Start Guide](#macos-step-by-step-guide) for platform-specific commands.
 
 ---
 
@@ -162,7 +164,7 @@ cd backend
 **3a. Create a virtual environment:**
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 ```
 
 **3b. Activate it:**
@@ -190,6 +192,7 @@ pip install --index-url https://download.pytorch.org/whl/cu128 torch torchvision
 ```
 
 > Without this, training works on CPU but takes significantly longer.
+> macOS with Apple Silicon uses MPS acceleration automatically — no extra install needed.
 
 ---
 
@@ -225,7 +228,7 @@ python -m train.prepare_dataset
 Scanning Train folder... found 1747 images
 Scanning Test folder... found 697 images
 Total: 2444 images across 7 classes
-Artifacts saved to backend\train\artifacts\
+Artifacts saved to backend/train/artifacts/
 ```
 
 ---
@@ -301,7 +304,7 @@ Epoch  2/80 ▸ train_loss=0.81  train_acc=70.1%  val_loss=0.52  val_acc=82.3%  
 ...
 Early stopping at epoch 65
 Test Accuracy: 79.4%
-Model exported to backend\app\ml\fish_disease_classifier.onnx (8.40 MB)
+Model exported to backend/app/ml/fish_disease_classifier.onnx (8.40 MB)
 ```
 
 > **Re-export only (no retraining):** If you have `best_model.pt` and just want to regenerate the ONNX file:
@@ -323,12 +326,6 @@ python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ```powershell
 .venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-**Or use the one-click launcher (Windows):**
-
-```cmd
-run_backend.bat
 ```
 
 **Expected output:**
@@ -357,10 +354,10 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to stop)
 Open a **second terminal** while the backend is running. From the `backend` folder:
 
 ```bash
-python tests/smoke_test.py --image-path "..\Freshwater_Fish_Disease_Aquaculture_in_south_asia\Test\Bacterial Red disease\Bacterial Red disease (1).jpg"
+python tests/smoke_test.py --image-path "../Freshwater_Fish_Disease_Aquaculture_in_south_asia/Test/Bacterial Red disease/Bacterial Red disease (1).jpg"
 ```
 
-**Windows without activating the venv:**
+**Windows (PowerShell):**
 
 ```powershell
 .venv\Scripts\python.exe tests\smoke_test.py --image-path "..\Freshwater_Fish_Disease_Aquaculture_in_south_asia\Test\Bacterial Red disease\Bacterial Red disease (1).jpg"
@@ -407,25 +404,28 @@ The Flutter app needs to know where the backend is running. The configuration is
 
 **For Android Emulator — no changes needed.** It uses `http://10.0.2.2:8000` automatically.
 
+**For iOS Simulator (macOS) — no changes needed.** It uses `http://127.0.0.1:8000` automatically since the simulator shares the Mac's network.
+
 **For a Physical Android Phone:**
 
 1. Find your computer's local IP address:
 
-   ```powershell
-   ipconfig
-   ```
-
-   Look for the **IPv4 Address** under your Wi-Fi adapter (e.g., `192.168.1.74`).
+   - **Windows:** `ipconfig` — look for "IPv4 Address" under Wi-Fi
+   - **macOS:** `ipconfig getifaddr en0` (Wi-Fi) or check System Settings → Wi-Fi → Details → IP Address
 
 2. Open `lib/services/api_prediction_service.dart` and update the `_lanIp` constant:
 
    ```dart
-   static const String _lanIp = 'http://192.168.1.74:8000';  // ← Your PC's IP
+   static const String _lanIp = 'http://192.168.1.74:8000';  // ← Your computer's IP
    ```
 
 3. Make sure your phone and computer are on the **same Wi-Fi network**.
 
-**For Windows/Chrome — no changes needed.** It uses `http://127.0.0.1:8000` automatically.
+**For a Physical iPhone (macOS):**
+
+Same as above — update `_lanIp` to your Mac's IP. The phone must be on the same Wi-Fi.
+
+**For Windows/Chrome/macOS desktop — no changes needed.** It uses `http://127.0.0.1:8000` automatically.
 
 ---
 
@@ -437,8 +437,11 @@ Make sure the backend is running (Step 6), then:
 |--------|---------|
 | **Physical Android phone** (USB) | `flutter run` → select your device |
 | **Android Emulator** | `flutter run` → select emulator |
+| **iOS Simulator** (macOS only) | `flutter run` → select simulator, or `open -a Simulator && flutter run` |
+| **Physical iPhone** (macOS only) | `flutter run` → select your iPhone |
 | **Chrome (web)** | `flutter run -d chrome` |
 | **Windows desktop** | `flutter run -d windows` |
+| **macOS desktop** | `flutter run -d macos` |
 
 **For a physical Android phone:**
 
@@ -453,6 +456,31 @@ flutter run
 
 5. Select your phone from the device list when prompted.
 
+**For iOS Simulator (macOS):**
+
+1. Install Xcode from the Mac App Store
+2. Open Xcode at least once and accept the license
+3. Install the iOS Simulator: `xcodebuild -downloadPlatform iOS`
+4. Run:
+
+```bash
+open -a Simulator
+flutter run
+```
+
+**For a physical iPhone (macOS):**
+
+1. Install Xcode from the Mac App Store
+2. Connect your iPhone via USB and trust the computer on the phone
+3. In Xcode, go to **Settings → Accounts** and sign in with your Apple ID
+4. Run:
+
+```bash
+flutter run
+```
+
+5. On first run, go to **Settings → General → VPN & Device Management** on the iPhone and trust your developer certificate.
+
 ---
 
 ### Step 11 — Scan a Fish!
@@ -463,6 +491,7 @@ Once the app launches on your device:
 2. Point the camera at a fish (or select an image from the dataset for testing)
 3. Wait for the AI analysis (~1–2 seconds)
 4. View the result: disease name, confidence percentage, top-3 predictions, cause, symptoms, treatment, and prevention
+5. If the image doesn't contain a recognizable fish, the app shows **"No Fish Detected"** with tips for better photos
 
 **Other tabs:**
 
@@ -471,7 +500,216 @@ Once the app launches on your device:
 
 ---
 
-## Command Summary (Copy-Paste Reference)
+## macOS Step-by-Step Guide
+
+A complete copy-paste guide for setting up and running the project on macOS (Intel or Apple Silicon).
+
+### Prerequisites (macOS)
+
+Install these tools first:
+
+**1. Homebrew** (if not already installed):
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+**2. Python 3.11+:**
+
+```bash
+brew install python@3.13
+```
+
+Verify:
+
+```bash
+python3 --version
+```
+
+**3. Flutter SDK:**
+
+```bash
+brew install --cask flutter
+```
+
+Or follow the official guide: https://docs.flutter.dev/get-started/install/macos
+
+Verify:
+
+```bash
+flutter doctor
+```
+
+**4. Xcode** (required for iOS development):
+
+```bash
+xcode-select --install
+```
+
+Then install Xcode from the [Mac App Store](https://apps.apple.com/us/app/xcode/id497799835). Open Xcode once and accept the license agreement.
+
+**5. CocoaPods** (required for Flutter iOS builds):
+
+```bash
+brew install cocoapods
+```
+
+**6. Git:**
+
+```bash
+brew install git
+```
+
+**7. (Optional) Android Studio** — only needed if you want to run on an Android emulator or physical Android device:
+
+```bash
+brew install --cask android-studio
+```
+
+---
+
+### macOS — Full Setup Commands
+
+```bash
+# ─── Step 1: Clone the repo ───
+git clone git@github.com:ATU-TechAI-Research-Hub/Fish_Disease_Detection-Flutter.git
+cd Fish_Disease_Detection-Flutter
+
+# ─── Step 2: (Optional) Download the Kaggle dataset ───
+# Download from: https://www.kaggle.com/datasets/subirbiswas19/freshwater-fish-disease-aquaculture-in-south-asia
+# Unzip into the project root so you have:
+#   Freshwater_Fish_Disease_Aquaculture_in_south_asia/Train/
+#   Freshwater_Fish_Disease_Aquaculture_in_south_asia/Test/
+
+# ─── Step 3: Set up the Python backend ───
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### macOS — Train the Model (Optional)
+
+> Skip this if the ONNX model already exists in `backend/app/ml/`.
+
+```bash
+# Make sure you're in the backend folder with the venv activated
+
+# Prepare dataset
+python -m train.prepare_dataset
+
+# Train the CNN model
+# On Apple Silicon Macs, PyTorch automatically uses MPS (Metal) for GPU acceleration
+python -m train.train_classifier
+
+# Training takes ~15-40 minutes depending on your Mac
+# Apple Silicon (M1/M2/M3/M4) is significantly faster than Intel Macs
+```
+
+### macOS — Start the Backend
+
+```bash
+# From the backend folder, with the venv activated:
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Verify it's running — open in your browser:
+
+- http://127.0.0.1:8000 → Should show API info
+- http://127.0.0.1:8000/health → Should show `"model_ready": true`
+
+**Keep this terminal open.**
+
+### macOS — Smoke Test (Optional)
+
+Open a **second terminal**:
+
+```bash
+cd Fish_Disease_Detection-Flutter/backend
+source .venv/bin/activate
+python tests/smoke_test.py --image-path "../Freshwater_Fish_Disease_Aquaculture_in_south_asia/Test/Bacterial Red disease/Bacterial Red disease (1).jpg"
+```
+
+### macOS — Run the Flutter App
+
+Open a **new terminal** at the project root:
+
+```bash
+cd Fish_Disease_Detection-Flutter
+flutter pub get
+```
+
+**Option A — iOS Simulator (recommended for quick testing):**
+
+```bash
+open -a Simulator
+flutter run
+```
+
+**Option B — Physical iPhone (USB):**
+
+1. Connect your iPhone via USB, trust the computer on the phone
+2. The backend URL auto-resolves for same-network devices. If your phone is on the same Wi-Fi, update `_lanIp` in `lib/services/api_prediction_service.dart`:
+
+```bash
+# Find your Mac's IP address:
+ipconfig getifaddr en0
+```
+
+Then set that IP in the Dart file and run:
+
+```bash
+flutter run
+```
+
+On first run, go to **Settings → General → VPN & Device Management** on your iPhone and trust the developer certificate.
+
+**Option C — macOS Desktop:**
+
+```bash
+flutter run -d macos
+```
+
+**Option D — Chrome:**
+
+```bash
+flutter run -d chrome
+```
+
+**Option E — Android Emulator:**
+
+```bash
+# Open Android Studio → Virtual Device Manager → Start an emulator
+flutter run
+```
+
+---
+
+### macOS — Quick-Start Summary (Copy-Paste)
+
+```bash
+# ─── Terminal 1: Backend ───
+git clone git@github.com:ATU-TechAI-Research-Hub/Fish_Disease_Detection-Flutter.git
+cd Fish_Disease_Detection-Flutter/backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+```bash
+# ─── Terminal 2: Flutter ───
+cd Fish_Disease_Detection-Flutter
+flutter pub get
+open -a Simulator        # or skip this for Chrome/macOS desktop
+flutter run              # or: flutter run -d chrome / flutter run -d macos
+```
+
+---
+
+## Command Summary — Windows (Copy-Paste Reference)
 
 ### Full Setup (Training + Running)
 
@@ -601,8 +839,15 @@ curl -X POST "http://127.0.0.1:8000/predict" -F "file=@fish_image.jpg"
 ### Backend won't start
 
 - Make sure you activated the virtual environment
-- Check port 8000 is free: `netstat -ano | findstr :8000`
-- Verify ONNX model exists: `dir backend\app\ml\fish_disease_classifier.onnx`
+- Check port 8000 is free:
+  - **Windows:** `netstat -ano | findstr :8000`
+  - **macOS:** `lsof -i :8000`
+- Verify ONNX model exists:
+  - **Windows:** `dir backend\app\ml\fish_disease_classifier.onnx`
+  - **macOS:** `ls -la backend/app/ml/fish_disease_classifier.onnx`
+- Kill a process occupying the port:
+  - **Windows:** `Stop-Process -Id <PID> -Force` (get PID from netstat)
+  - **macOS:** `kill -9 <PID>` (get PID from lsof)
 
 ### `/health` shows `model_ready: false`
 
@@ -612,20 +857,39 @@ curl -X POST "http://127.0.0.1:8000/predict" -F "file=@fish_image.jpg"
 ### Flutter app shows "Connection Failed"
 
 - Make sure the backend is running (Step 6)
-- **Emulator**: Uses `http://10.0.2.2:8000` — backend must be on the same machine
-- **Physical phone**: Update `_lanIp` in `lib/services/api_prediction_service.dart` to your PC's IP, and make sure both devices are on the same Wi-Fi
+- **Android Emulator**: Uses `http://10.0.2.2:8000` — backend must be on the same machine
+- **iOS Simulator**: Uses `http://127.0.0.1:8000` — backend must be on the same Mac
+- **Physical phone (Android/iPhone)**: Update `_lanIp` in `lib/services/api_prediction_service.dart` to your computer's IP, and make sure both devices are on the same Wi-Fi
+- Find your IP:
+  - **Windows:** `ipconfig` → look for IPv4 under Wi-Fi
+  - **macOS:** `ipconfig getifaddr en0`
 
 ### 400 Bad Request from `/predict`
 
 - The image file may be empty, too large (>15 MB), or an unsupported format
 - Supported formats: JPEG, PNG, WebP, GIF, BMP
 
-### CUDA not detected during training
+### CUDA / GPU not detected during training
 
-- Install CUDA PyTorch: `pip install --index-url https://download.pytorch.org/whl/cu128 torch torchvision`
-- Training falls back to CPU automatically if CUDA is unavailable
+- **Windows (NVIDIA GPU):** `pip install --index-url https://download.pytorch.org/whl/cu128 torch torchvision`
+- **macOS (Apple Silicon):** MPS acceleration is built into PyTorch — no extra install needed. Verify with: `python3 -c "import torch; print(torch.backends.mps.is_available())"`
+- **macOS (Intel):** No GPU acceleration available; training runs on CPU
+- Training falls back to CPU automatically if no GPU is available
 
-### PowerShell `&&` operator error
+### macOS — `flutter run` fails with Xcode errors
+
+- Make sure Xcode is installed and you've accepted the license: `sudo xcodebuild -license accept`
+- Install Xcode command-line tools: `xcode-select --install`
+- Install CocoaPods: `brew install cocoapods`
+- From the project root, run: `cd ios && pod install && cd ..`
+- If you get signing errors, open `ios/Runner.xcworkspace` in Xcode, go to **Signing & Capabilities**, and select a valid development team
+
+### macOS — `python3: command not found`
+
+- Install Python via Homebrew: `brew install python@3.13`
+- Or download from https://www.python.org/downloads/macos/
+
+### PowerShell `&&` operator error (Windows)
 
 PowerShell versions before 7.0 don't support `&&`. Run commands one at a time, or use `;` as separator.
 
