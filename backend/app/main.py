@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import logging
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,7 +24,7 @@ CLASS_MAP_FILE = PROJECT_ROOT / "backend" / "app" / "ml" / "class_map.json"
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp"}
 
-prediction_service: PredictionService | None = None
+prediction_service: Optional[PredictionService] = None
 
 
 @asynccontextmanager
@@ -72,7 +75,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 @app.get("/health")
-async def health() -> dict[str, object]:
+async def health() -> Dict[str, Any]:
     svc = prediction_service
     return {
         "status": "ok",
@@ -83,7 +86,7 @@ async def health() -> dict[str, object]:
 
 
 @app.get("/")
-async def root() -> dict[str, object]:
+async def root() -> Dict[str, Any]:
     return {
         "message": "AquaScan Fish Disease Detection API is running.",
         "docs": "/docs",
@@ -91,8 +94,8 @@ async def root() -> dict[str, object]:
     }
 
 
-@app.get("/diseases", response_model=list[Disease])
-async def get_diseases() -> list[Disease]:
+@app.get("/diseases", response_model=List[Disease])
+async def get_diseases() -> List[Disease]:
     if not prediction_service:
         raise HTTPException(503, "Service not ready.")
     return prediction_service.get_all_diseases()

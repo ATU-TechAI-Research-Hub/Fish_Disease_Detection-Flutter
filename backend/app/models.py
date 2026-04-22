@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import List
+
 from pydantic import BaseModel
 
 
@@ -23,4 +27,4 @@ class PredictionResponse(BaseModel):
     source: str
     filename: str
     inference_ms: float = 0.0
-    top_predictions: list[ClassProbability] = []
+    top_predictions: List[ClassProbability] = []

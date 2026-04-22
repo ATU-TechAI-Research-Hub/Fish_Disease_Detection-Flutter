@@ -3,7 +3,7 @@ uvicorn[standard]
 python-multipart
 numpy
 onnx
-onnxruntime-gpu
+onnxruntime
 pandas
 pillow
 requests

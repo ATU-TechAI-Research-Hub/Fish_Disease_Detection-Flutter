@@ -1,0 +1,188 @@
+==============================================================
+  AquaScan — macOS Setup Guide
+  Run the Fish Disease Detection app on an Apple device
+==============================================================
+
+
+STEP 1 — INSTALL PREREQUISITES
+--------------------------------------------------------------
+
+# Install Homebrew (if not already installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install Python
+brew install python@3.13
+
+# Install Flutter
+brew install --cask flutter
+
+# Install Git
+brew install git
+
+# Install CocoaPods (required for iOS builds)
+brew install cocoapods
+
+# Install Xcode from the Mac App Store:
+# https://apps.apple.com/us/app/xcode/id497799835
+
+# After installing Xcode, run these:
+sudo xcodebuild -license accept
+xcode-select --install
+
+# Verify everything is installed:
+python3 --version
+flutter doctor
+git --version
+pod --version
+
+
+STEP 2 — CLONE THE PROJECT
+--------------------------------------------------------------
+
+git clone https://github.com/ATU-TechAI-Research-Hub/Fish_Disease_Detection-Flutter.git
+cd Fish_Disease_Detection-Flutter
+
+
+STEP 3 — SET UP & START THE BACKEND
+--------------------------------------------------------------
+
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# You should see:
+#   INFO | Model ready: True (provider: onnxruntime-cpu)
+#   INFO:     Uvicorn running on http://0.0.0.0:8000
+
+# Verify: open http://127.0.0.1:8000/health in Safari
+# It should show "model_ready": true
+
+# >>> KEEP THIS TERMINAL OPEN <<<
+
+
+STEP 4 — SET UP FLUTTER & iOS DEPENDENCIES
+--------------------------------------------------------------
+
+# Open a NEW terminal tab (Cmd + T)
+
+cd Fish_Disease_Detection-Flutter
+flutter pub get
+cd ios
+pod install
+cd ..
+
+
+STEP 5a — RUN ON iOS SIMULATOR
+--------------------------------------------------------------
+
+open -a Simulator
+flutter run
+
+# The iOS Simulator shares the Mac's network so it connects
+# to the backend at http://127.0.0.1:8000 automatically.
+# No IP configuration needed.
+
+
+STEP 5b — RUN ON A PHYSICAL iPHONE
+--------------------------------------------------------------
+
+# 1. Connect your iPhone via USB cable
+# 2. Tap "Trust" on the iPhone when prompted
+# 3. Find your Mac's IP address:
+
+ipconfig getifaddr en0
+
+# 4. Open lib/services/api_prediction_service.dart
+#    and update the _lanIp line to your Mac's IP:
+#
+#    static const String _lanIp = 'http://192.168.x.x:8000';
+#
+# 5. Make sure iPhone and Mac are on the SAME Wi-Fi network
+# 6. Run:
+
+flutter run
+
+# 7. Select your iPhone from the device list
+# 8. First time only: On your iPhone go to
+#    Settings → General → VPN & Device Management
+#    and tap Trust on your developer certificate
+
+
+STEP 5c — RUN ON macOS DESKTOP
+--------------------------------------------------------------
+
+flutter run -d macos
+
+
+STEP 5d — RUN ON CHROME (WEB)
+--------------------------------------------------------------
+
+flutter run -d chrome
+
+
+OPTIONAL — RETRAIN THE MODEL ON MAC
+--------------------------------------------------------------
+
+# Apple Silicon Macs (M1/M2/M3/M4) use MPS GPU acceleration automatically.
+# Download dataset from:
+# https://www.kaggle.com/datasets/subirbiswas19/freshwater-fish-disease-aquaculture-in-south-asia
+# Unzip into the project root folder.
+
+# In the backend terminal with venv activated:
+python -m train.prepare_dataset
+python -m train.train_classifier
+
+
+==============================================================
+  QUICK REFERENCE — COPY-PASTE (TWO TERMINALS)
+==============================================================
+
+--- Terminal 1: Backend ---
+
+git clone https://github.com/ATU-TechAI-Research-Hub/Fish_Disease_Detection-Flutter.git
+cd Fish_Disease_Detection-Flutter/backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+
+--- Terminal 2: Flutter ---
+
+cd Fish_Disease_Detection-Flutter
+flutter pub get
+cd ios && pod install && cd ..
+open -a Simulator
+flutter run
+
+
+==============================================================
+  TROUBLESHOOTING
+==============================================================
+
+PROBLEM: flutter doctor shows Xcode issues
+FIX:     sudo xcodebuild -license accept
+         xcode-select --install
+
+PROBLEM: pod install fails
+FIX:     brew install cocoapods
+         cd ios && pod install && cd ..
+
+PROBLEM: App can't connect to backend (physical iPhone)
+FIX:     Check your Mac's IP: ipconfig getifaddr en0
+         Update _lanIp in lib/services/api_prediction_service.dart
+         Make sure both devices are on the same Wi-Fi
+
+PROBLEM: "Untrusted Developer" error on iPhone
+FIX:     Settings → General → VPN & Device Management → Trust
+
+PROBLEM: python3 command not found
+FIX:     brew install python@3.13
+
+PROBLEM: Backend port 8000 already in use
+FIX:     lsof -i :8000
+         kill -9 <PID>

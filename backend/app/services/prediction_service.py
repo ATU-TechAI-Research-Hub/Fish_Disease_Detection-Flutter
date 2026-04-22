@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import io
 import json
 import os
 import time
 from pathlib import Path
+from typing import Dict, List, Optional
 
 import numpy as np
 import onnxruntime as ort
@@ -10,22 +13,22 @@ from PIL import Image, ImageOps
 
 from app.models import ClassProbability, Disease, PredictionResponse
 
-CONFIDENCE_THRESHOLD = 0.40
+CONFIDENCE_THRESHOLD = 0.35
 ENTROPY_THRESHOLD = 1.6
 NO_FISH_DISEASE_ID = 0
 
 
 class PredictionService:
     def __init__(
-        self, data_file: Path, model_file: Path | None = None, class_map_file: Path | None = None
+        self, data_file: Path, model_file: Optional[Path] = None, class_map_file: Optional[Path] = None
     ) -> None:
         self._data_file = data_file
         self._diseases = self._load_diseases()
         self._disease_by_id = {disease.id: disease for disease in self._diseases}
         self._model_file = model_file
         self._class_map_file = class_map_file
-        self._session: ort.InferenceSession | None = None
-        self._input_name: str | None = None
+        self._session: Optional[ort.InferenceSession] = None
+        self._input_name: Optional[str] = None
         self._image_size = 150
         self._class_map: dict[int, dict[str, object]] = {}
         self._runtime_source = "model-not-loaded"
@@ -108,17 +111,12 @@ class PredictionService:
         if w == 0 or h == 0:
             raise ValueError("Image has invalid dimensions.")
 
-        short_side = min(w, h)
-        left = (w - short_side) // 2
-        top = (h - short_side) // 2
-        image = image.crop((left, top, left + short_side, top + short_side))
-
         image = image.resize(
             (self._image_size, self._image_size), Image.LANCZOS
         )
 
         arr = np.asarray(image, dtype=np.float32) / 255.0
-        arr = np.transpose(arr, (2, 0, 1))[None, ...]
+        arr = arr[None, ...]  # NHWC: (1, H, W, 3)
         return arr
 
     @staticmethod
@@ -157,11 +155,15 @@ class PredictionService:
 
         t0 = time.perf_counter()
         input_tensor = self._preprocess_image(image_bytes)
-        logits = self._session.run(None, {self._input_name: input_tensor})[0][0]
+        raw_output = self._session.run(None, {self._input_name: input_tensor})[0][0]
         inference_ms = (time.perf_counter() - t0) * 1000
-        logits = np.asarray(logits, dtype=np.float32)
-        exp_scores = np.exp(logits - np.max(logits))
-        probabilities = exp_scores / np.sum(exp_scores)
+        raw_output = np.asarray(raw_output, dtype=np.float32)
+
+        if np.all(raw_output >= 0) and np.isclose(np.sum(raw_output), 1.0, atol=0.01):
+            probabilities = raw_output
+        else:
+            exp_scores = np.exp(raw_output - np.max(raw_output))
+            probabilities = exp_scores / np.sum(exp_scores)
         class_index = int(np.argmax(probabilities))
         confidence = float(probabilities[class_index])
 
