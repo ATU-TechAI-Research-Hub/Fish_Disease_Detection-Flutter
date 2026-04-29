@@ -61,8 +61,19 @@ class _HomeScreenState extends State<HomeScreen> {
     return false;
   }
 
+  bool get _cameraSupported => Platform.isAndroid || Platform.isIOS;
+
   Future<void> _scanWithCamera() async {
     if (_isBusy) return;
+
+    if (!_cameraSupported) {
+      _showInfo(
+        'Camera capture is only available on Android and iOS. '
+        'Please use "Upload from Gallery" on this device.',
+      );
+      return;
+    }
+
     setState(() => _isBusy = true);
 
     try {
@@ -126,6 +137,26 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showInfo(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: AppColors.seaBlue,
+        duration: const Duration(seconds: 4),
+        content: Row(
+          children: [
+            const Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(msg, style: const TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,7 +182,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildScanButton(
                     icon: Icons.camera_alt_rounded,
                     title: _isBusy ? 'Opening...' : 'Take a Photo',
-                    subtitle: 'Use camera to capture a live fish image',
+                    subtitle: _cameraSupported
+                        ? 'Use camera to capture a live fish image'
+                        : 'Available on mobile devices only',
                     colors: [AppColors.seaBlue, AppColors.aqua],
                     onTap: _isBusy ? null : _scanWithCamera,
                   ),
