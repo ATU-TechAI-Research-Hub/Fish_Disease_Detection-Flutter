@@ -1,13 +1,16 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 
+import '../services/backend_status_service.dart';
+import '../services/scan_flow.dart';
 import '../theme/app_theme.dart';
+import '../widgets/backend_status_banner.dart';
 import '../widgets/bubble_background.dart';
+import '../widgets/disease_category_strip.dart';
+import '../widgets/how_it_works_strip.dart';
+import '../widgets/primary_action_card.dart';
+import '../widgets/section_header.dart';
+import '../widgets/stat_card.dart';
 import '../widgets/wave_clipper.dart';
-import 'result_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,292 +20,242 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final ImagePicker _picker = ImagePicker();
   bool _isBusy = false;
 
-  Future<bool> _ensureCameraPermission() async {
-    if (!Platform.isAndroid && !Platform.isIOS) return true;
-
-    var status = await Permission.camera.status;
-    if (status.isGranted) return true;
-
-    status = await Permission.camera.request();
-    if (status.isGranted) return true;
-
-    if (!mounted) return false;
-
-    if (status.isPermanentlyDenied) {
-      await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Camera Permission Required'),
-          content: const Text(
-            'Camera access was denied. Please enable it in settings.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                openAppSettings();
-              },
-              child: const Text('Open Settings'),
-            ),
-          ],
-        ),
-      );
-      return false;
-    }
-    return false;
+  @override
+  void initState() {
+    super.initState();
+    BackendStatusService.instance.addListener(_onStatusChanged);
   }
 
-  bool get _cameraSupported => Platform.isAndroid || Platform.isIOS;
+  @override
+  void dispose() {
+    BackendStatusService.instance.removeListener(_onStatusChanged);
+    super.dispose();
+  }
 
-  Future<void> _scanWithCamera() async {
+  void _onStatusChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _backendReachable => ScanFlow.backendReachable;
+
+  Future<void> _runScan(Future<void> Function() action) async {
     if (_isBusy) return;
-
-    if (!_cameraSupported) {
-      _showInfo(
-        'Camera capture is only available on Android and iOS. '
-        'Please use "Upload from Gallery" on this device.',
-      );
-      return;
-    }
-
     setState(() => _isBusy = true);
-
     try {
-      final hasPermission = await _ensureCameraPermission();
-      if (!hasPermission || !mounted) return;
-
-      final XFile? photo = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 90,
-        maxWidth: 1500,
-        preferredCameraDevice: CameraDevice.rear,
-      );
-      if (!mounted || photo == null) return;
-
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => ResultScreen(imagePath: photo.path),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      _showError('Could not open camera: $e');
+      await action();
     } finally {
       if (mounted) setState(() => _isBusy = false);
     }
-  }
-
-  Future<void> _pickFromGallery() async {
-    if (_isBusy) return;
-    setState(() => _isBusy = true);
-
-    try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 90,
-        maxWidth: 1500,
-      );
-      if (!mounted || image == null) return;
-
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => ResultScreen(imagePath: image.path),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      _showError('Could not open gallery: $e');
-    } finally {
-      if (mounted) setState(() => _isBusy = false);
-    }
-  }
-
-  void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        backgroundColor: AppColors.coral,
-        content: Text(msg, style: const TextStyle(color: Colors.white)),
-      ),
-    );
-  }
-
-  void _showInfo(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        backgroundColor: AppColors.seaBlue,
-        duration: const Duration(seconds: 4),
-        content: Row(
-          children: [
-            const Icon(Icons.info_outline_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(msg, style: const TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final reachable = _backendReachable;
+    final busyLabel = _isBusy ? 'Opening…' : null;
+
     return Scaffold(
       backgroundColor: AppColors.surface,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildWaveHeader(context),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 20),
-                  Text('Scan Your Fish',
-                      style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Choose a method to capture the fish image for AI disease analysis.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildScanButton(
-                    icon: Icons.camera_alt_rounded,
-                    title: _isBusy ? 'Opening...' : 'Take a Photo',
-                    subtitle: _cameraSupported
-                        ? 'Use camera to capture a live fish image'
-                        : 'Available on mobile devices only',
-                    colors: [AppColors.seaBlue, AppColors.aqua],
-                    onTap: _isBusy ? null : _scanWithCamera,
-                  ),
-                  const SizedBox(height: 14),
-                  _buildScanButton(
-                    icon: Icons.photo_library_rounded,
-                    title: _isBusy ? 'Opening...' : 'Upload from Gallery',
-                    subtitle: 'Select an existing fish photo',
-                    colors: [AppColors.teal, AppColors.seafoam],
-                    onTap: _isBusy ? null : _pickFromGallery,
-                  ),
-                  const SizedBox(height: 32),
-                  Text('How It Works',
-                      style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 16),
-                  _buildStep(
-                    number: '1',
-                    icon: Icons.add_a_photo_rounded,
-                    title: 'Capture',
-                    desc: 'Take a photo or pick from gallery',
-                    color: AppColors.seaBlue,
-                  ),
-                  _buildStep(
-                    number: '2',
-                    icon: Icons.auto_awesome_rounded,
-                    title: 'AI Analysis',
-                    desc: 'CNN model classifies the disease',
-                    color: AppColors.purple,
-                    showLine: true,
-                  ),
-                  _buildStep(
-                    number: '3',
-                    icon: Icons.fact_check_rounded,
-                    title: 'Get Results',
-                    desc: 'View disease info and treatment',
-                    color: AppColors.emerald,
-                    showLine: true,
-                    isLast: true,
-                  ),
-                  const SizedBox(height: 28),
-                  _buildInfoRow(context),
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: _buildHero(context)),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                const BackendStatusBanner(),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: StatCard(
+                        icon: Icons.category_rounded,
+                        value: '7',
+                        label: 'Classes',
+                        accent: AppColors.seaBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatCard(
+                        icon: Icons.psychology_rounded,
+                        value: 'CNN',
+                        label: 'AI Model',
+                        accent: AppColors.purple,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatCard(
+                        icon: Icons.wifi_tethering_rounded,
+                        value: reachable ? 'On' : 'Off',
+                        label: 'Backend',
+                        accent: reachable ? AppColors.emerald : AppColors.coral,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                const SectionHeader(
+                  title: 'Start a scan',
+                  subtitle: 'Capture or upload a clear fish photo for analysis.',
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 156,
+                        child: PrimaryActionCard(
+                          testKey: const Key('home_camera_action'),
+                          icon: Icons.camera_alt_rounded,
+                          title: busyLabel ?? 'Camera',
+                          subtitle: ScanFlow.cameraSupported
+                              ? 'Live capture'
+                              : 'Mobile only',
+                          colors: const [AppColors.seaBlue, AppColors.aqua],
+                          onTap: (!_isBusy && reachable)
+                              ? () => _runScan(
+                                    () => ScanFlow.scanWithCamera(context),
+                                  )
+                              : null,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 156,
+                        child: PrimaryActionCard(
+                          testKey: const Key('home_gallery_action'),
+                          icon: Icons.photo_library_rounded,
+                          title: busyLabel ?? 'Gallery',
+                          subtitle: 'Saved images',
+                          colors: const [AppColors.teal, AppColors.emerald],
+                          onTap: (!_isBusy && reachable)
+                              ? () => _runScan(
+                                    () => ScanFlow.pickFromGallery(context),
+                                  )
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (!reachable) ...[
+                  const SizedBox(height: 12),
+                  _OfflineHint(),
                 ],
-              ),
+                const SizedBox(height: 28),
+                const SectionHeaderAccent(title: 'Detectable conditions'),
+                const SizedBox(height: 12),
+                const DiseaseCategoryStrip(),
+                const SizedBox(height: 28),
+                const SectionHeader(
+                  title: 'How it works',
+                  subtitle: 'Four quick steps from photo to treatment guidance.',
+                ),
+                const SizedBox(height: 14),
+                const HowItWorksStrip(),
+                const SizedBox(height: 24),
+                _ResearchCard(),
+                const SizedBox(height: 8),
+                _PhotoTipsCard(),
+              ]),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildWaveHeader(BuildContext context) {
+  Widget _buildHero(BuildContext context) {
     return BubbleBackground(
       child: WaveHeader(
-        height: 260,
-        colors: const [AppColors.deepOcean, AppColors.seaBlue],
+        height: 264,
+        colors: const [AppColors.deepOcean, AppColors.ocean, AppColors.seaBlue],
         child: SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
                     Container(
-                      width: 40,
-                      height: 40,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.white.withValues(alpha: 0.22),
+                            Colors.white.withValues(alpha: 0.08),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2),
+                        ),
                       ),
-                      child: const Icon(Icons.set_meal_rounded,
-                          color: Colors.white, size: 22),
+                      child: const Icon(
+                        Icons.set_meal_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                     ),
-                    const SizedBox(width: 10),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'AquaScan',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'AquaScan',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: -0.5,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Fish Disease Detection',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFFB0D9F0),
-                            fontWeight: FontWeight.w500,
+                          Text(
+                            'Freshwater fish disease AI',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFB0D9F0),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const BackendStatusBanner(compact: true),
                   ],
                 ),
-                const Spacer(),
-                const Text(
-                  'Identify Fish Diseases\nwith AI in Seconds',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    height: 1.2,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _HeaderChip(
-                        label: '7 Classes', icon: Icons.category_rounded),
-                    const SizedBox(width: 8),
-                    _HeaderChip(
-                        label: '79% Accuracy', icon: Icons.verified_rounded),
+                    Text(
+                      'Scan. Preview.\nDiagnose.',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        height: 1.15,
+                        letterSpacing: -0.6,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      '7-class CNN for South Asian freshwater aquaculture.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFB8D9F0),
+                        height: 1.35,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -312,176 +265,29 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
 
-  Widget _buildScanButton({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required List<Color> colors,
-    VoidCallback? onTap,
-  }) {
-    final isDisabled = onTap == null;
-    return AnimatedOpacity(
-      opacity: isDisabled ? 0.55 : 1.0,
-      duration: const Duration(milliseconds: 200),
-      child: GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: colors,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: colors.first.withValues(alpha: 0.25),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, color: Colors.white, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white.withValues(alpha: 0.85),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios_rounded,
-                color: Colors.white.withValues(alpha: 0.5), size: 18),
-          ],
-        ),
-      ),
-    ),
-    );
-  }
-
-  Widget _buildStep({
-    required String number,
-    required IconData icon,
-    required String title,
-    required String desc,
-    required Color color,
-    bool showLine = false,
-    bool isLast = false,
-  }) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              if (showLine)
-                Container(
-                  width: 2,
-                  height: 12,
-                  color: color.withValues(alpha: 0.2),
-                ),
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(color: color.withValues(alpha: 0.3)),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 2,
-                    color: color.withValues(alpha: 0.2),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(
-                top: showLine ? 12 : 0,
-                bottom: isLast ? 0 : 16,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    desc,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(BuildContext context) {
+class _OfflineHint extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.wave,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.aqua.withValues(alpha: 0.15)),
+        color: AppColors.coral.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.coral.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline_rounded,
-              color: AppColors.seaBlue, size: 20),
+          const Icon(Icons.cloud_off_rounded, color: AppColors.coral, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Trained on 2,444 freshwater fish images from South Asian aquaculture. Detects 6 diseases + healthy fish.',
+              'Start the backend with run_backend.bat on port 8000.',
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.ocean,
-                height: 1.4,
+                color: AppColors.textPrimary.withValues(alpha: 0.85),
+                height: 1.35,
               ),
             ),
           ),
@@ -491,31 +297,108 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _HeaderChip extends StatelessWidget {
-  const _HeaderChip({required this.label, required this.icon});
-
-  final String label;
-  final IconData icon;
-
+class _ResearchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
+        color: AppColors.wave,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.aqua.withValues(alpha: 0.15)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppColors.seafoam, size: 14),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.seaBlue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.science_rounded,
+              color: AppColors.seaBlue,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              'Based on Tamut et al., Aquac. J. 2025 — trained on 2,444 '
+              'freshwater fish images. Model accuracy ~81% on the held-out test set.',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.ocean,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PhotoTipsCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.deepOcean.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.tips_and_updates_rounded,
+                color: AppColors.amber.withValues(alpha: 0.9),
+                size: 22,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Photo tips',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...['Side view of the fish in clear water',
+              'Good lighting — avoid heavy shadows',
+              'Fill the frame; avoid hands or nets',
+          ].map(
+            (tip) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('• ', style: TextStyle(color: AppColors.teal)),
+                  Expanded(
+                    child: Text(
+                      tip,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

@@ -277,6 +277,28 @@ class _ResultBody extends StatelessWidget {
     return d.type.toUpperCase();
   }
 
+  Color _tierColor(ConfidenceTier tier) {
+    switch (tier) {
+      case ConfidenceTier.high:
+        return AppColors.emerald;
+      case ConfidenceTier.medium:
+        return AppColors.amber;
+      case ConfidenceTier.low:
+        return AppColors.coral;
+    }
+  }
+
+  IconData _tierIcon(ConfidenceTier tier) {
+    switch (tier) {
+      case ConfidenceTier.high:
+        return Icons.verified_rounded;
+      case ConfidenceTier.medium:
+        return Icons.balance_rounded;
+      case ConfidenceTier.low:
+        return Icons.help_outline_rounded;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final disease = result.disease;
@@ -386,6 +408,14 @@ class _ResultBody extends StatelessWidget {
               children: [
                 if (isUnknown) ...[
                   _buildNoFishCard(context),
+                  if (result.warning != null) ...[
+                    const SizedBox(height: 12),
+                    _buildWarningCard(context, result.warning!),
+                  ],
+                  if (result.recommendation != null) ...[
+                    const SizedBox(height: 12),
+                    _buildRecommendationCard(context, result.recommendation!),
+                  ],
                   const SizedBox(height: 12),
                   _buildMetaRow(context),
                   if (result.topPredictions.length > 1) ...[
@@ -418,6 +448,16 @@ class _ResultBody extends StatelessWidget {
                   ),
                 ] else ...[
                   _buildConfidenceCard(context),
+                  const SizedBox(height: 12),
+                  _buildTierBadge(context),
+                  if (result.warning != null) ...[
+                    const SizedBox(height: 12),
+                    _buildWarningCard(context, result.warning!),
+                  ],
+                  if (result.recommendation != null) ...[
+                    const SizedBox(height: 12),
+                    _buildRecommendationCard(context, result.recommendation!),
+                  ],
                   const SizedBox(height: 12),
                   _buildMetaRow(context),
                   if (result.topPredictions.length > 1) ...[
@@ -564,6 +604,112 @@ class _ResultBody extends StatelessWidget {
     );
   }
 
+  Widget _buildTierBadge(BuildContext context) {
+    final tier = result.confidenceTier;
+    final color = _tierColor(tier);
+    final icon = _tierIcon(tier);
+    final pct = (result.confidence * 100).toStringAsFixed(1);
+    return Semantics(
+      label: '${tier.label}, $pct percent. ${result.disease.name}.',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '${tier.label} • $pct%',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWarningCard(BuildContext context, String warning) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.amber.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.amber.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded,
+              color: AppColors.amber, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              warning,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textPrimary,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecommendationCard(BuildContext context, String recommendation) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.seaBlue.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.seaBlue.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.lightbulb_outline_rounded,
+              color: AppColors.seaBlue, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Recommended next step',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ocean,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  recommendation,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMetaRow(BuildContext context) {
     final chips = <Widget>[];
     if (result.inferenceMs > 0) {
@@ -574,9 +720,16 @@ class _ResultBody extends StatelessWidget {
     }
     chips.add(_MetaChip(
       icon: Icons.memory_rounded,
-      label: result.source.replaceAll('onnxruntime-', '').toUpperCase(),
+      label: _prettySource(result.source),
     ));
     return Wrap(spacing: 8, runSpacing: 8, children: chips);
+  }
+
+  String _prettySource(String source) {
+    final lower = source.toLowerCase();
+    if (lower.contains('keras')) return 'KERAS H5';
+    if (lower.contains('onnx')) return 'ONNX';
+    return source.toUpperCase();
   }
 
   Widget _buildTopPredictions(BuildContext context) {

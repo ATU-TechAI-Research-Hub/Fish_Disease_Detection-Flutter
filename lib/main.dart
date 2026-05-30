@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'screens/app_shell.dart';
+import 'services/backend_status_service.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -12,6 +13,7 @@ void main() {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+  BackendStatusService.instance.start();
   runApp(const FishDiseaseApp());
 }
 

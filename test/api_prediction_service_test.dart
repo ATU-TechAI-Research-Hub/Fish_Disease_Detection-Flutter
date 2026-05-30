@@ -24,7 +24,10 @@ void main() {
       expect(prediction.disease.id, greaterThan(0));
       expect(prediction.disease.name, isNotEmpty);
       expect(prediction.confidence, greaterThan(0));
-      expect(prediction.source, contains('onnxruntime'));
+      expect(
+        prediction.source.toLowerCase(),
+        anyOf(contains('keras'), contains('onnx')),
+      );
     },
     timeout: const Timeout(Duration(seconds: 30)),
     skip: runLiveApiTest && sampleImage.existsSync()

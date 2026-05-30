@@ -1,13 +1,17 @@
-fastapi
-uvicorn[standard]
-python-multipart
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.9
+pydantic>=2.0.0
 numpy
-onnx
-onnxruntime
 pandas
 pillow
 requests
 scikit-learn
-torch
-torchvision
 tqdm
+
+# Inference (Keras .h5 — primary)
+tensorflow
+
+# Inference (ONNX — offline-only fallback for legacy artifacts)
+onnx
+onnxruntime

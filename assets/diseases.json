@@ -48,7 +48,7 @@
     "id": 5,
     "name": "Healthy Fish",
     "type": "Healthy",
-    "cause": "No active disease detected in the selected image based on current mock prediction.",
+    "cause": "No active disease was detected in the uploaded image. The CNN classified the fish as healthy.",
     "symptoms": "Clear skin, normal swimming, active feeding behavior, and no visible lesions or discoloration.",
     "treatment": "No treatment required. Continue routine observation and good husbandry practices.",
     "prevention": "Sustain quality feed, regular water testing, biosecurity practices, and timely pond maintenance."

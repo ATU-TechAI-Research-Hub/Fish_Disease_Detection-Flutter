@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../services/backend_status_service.dart';
+import '../services/scan_flow.dart';
 import '../theme/app_theme.dart';
+import '../widgets/scan_options_sheet.dart';
 import 'disease_library_screen.dart';
 import 'home_screen.dart';
 import 'scan_history_screen.dart';
@@ -22,100 +25,82 @@ class _AppShellState extends State<AppShell> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    BackendStatusService.instance.addListener(_onBackendChanged);
+  }
+
+  @override
+  void dispose() {
+    BackendStatusService.instance.removeListener(_onBackendChanged);
+    super.dispose();
+  }
+
+  void _onBackendChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _openScanSheet() {
+    ScanOptionsSheet.show(
+      context,
+      cameraEnabled: ScanFlow.cameraSupported,
+      onCamera: ScanFlow.backendReachable
+          ? () {
+              Navigator.pop(context);
+              ScanFlow.scanWithCamera(context);
+            }
+          : null,
+      onGallery: ScanFlow.backendReachable
+          ? () {
+              Navigator.pop(context);
+              ScanFlow.pickFromGallery(context);
+            }
+          : null,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.deepOcean.withValues(alpha: 0.06),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _NavItem(
-                  icon: Icons.water_drop_rounded,
-                  label: 'Home',
-                  isSelected: _currentIndex == 0,
-                  onTap: () => setState(() => _currentIndex = 0),
-                ),
-                _NavItem(
-                  icon: Icons.biotech_rounded,
-                  label: 'Diseases',
-                  isSelected: _currentIndex == 1,
-                  onTap: () => setState(() => _currentIndex = 1),
-                ),
-                _NavItem(
-                  icon: Icons.history_rounded,
-                  label: 'History',
-                  isSelected: _currentIndex == 2,
-                  onTap: () => setState(() => _currentIndex = 2),
-                ),
-              ],
-            ),
-          ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openScanSheet,
+        backgroundColor: AppColors.seaBlue,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        icon: const Icon(Icons.document_scanner_outlined),
+        label: const Text(
+          'Scan',
+          style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.2),
         ),
       ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isSelected ? AppColors.seaBlue : const Color(0xFFB0BEC5);
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.seaBlue.withValues(alpha: 0.08)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: color,
-              ),
-            ),
-          ],
-        ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (i) => setState(() => _currentIndex = i),
+        backgroundColor: Colors.white,
+        indicatorColor: AppColors.seaBlue.withValues(alpha: 0.12),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.menu_book_outlined),
+            selectedIcon: Icon(Icons.menu_book_rounded),
+            label: 'Library',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history_rounded),
+            label: 'History',
+          ),
+        ],
       ),
     );
   }

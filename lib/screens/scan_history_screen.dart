@@ -2,9 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../models/prediction_result_model.dart';
 import '../services/scan_history_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/wave_clipper.dart';
+import '../theme/disease_visuals.dart';
+import '../widgets/app_page_header.dart';
 import 'result_screen.dart';
 
 class ScanHistoryScreen extends StatefulWidget {
@@ -39,83 +41,47 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
       backgroundColor: AppColors.surface,
       body: Column(
         children: [
-          WaveHeader(
-            height: 160,
-            colors: const [AppColors.deepOcean, AppColors.ocean],
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Spacer(),
-                    Row(
-                      children: [
-                        const Text(
-                          'Scan History',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (entries.isNotEmpty)
-                          GestureDetector(
-                            onTap: () => _confirmClear(context),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.delete_sweep_rounded,
-                                      color:
-                                          Colors.white.withValues(alpha: 0.8),
-                                      size: 16),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Clear',
-                                    style: TextStyle(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.8),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
+          AppPageHeader(
+            title: 'Scan History',
+            subtitle:
+                '${entries.length} scan${entries.length == 1 ? '' : 's'} this session',
+            height: 140,
+            trailing: entries.isEmpty
+                ? null
+                : TextButton.icon(
+                    onPressed: () => _confirmClear(context),
+                    icon: Icon(
+                      Icons.delete_sweep_rounded,
+                      color: Colors.white.withValues(alpha: 0.9),
+                      size: 18,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${entries.length} scan${entries.length == 1 ? '' : 's'} this session',
+                    label: Text(
+                      'Clear',
                       style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
           ),
           Expanded(
             child: entries.isEmpty
                 ? _buildEmpty(context)
                 : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
                     itemCount: entries.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, i) =>
-                        _buildTile(context, entries[i]),
+                    itemBuilder: (context, i) => _buildTile(context, entries[i]),
                   ),
           ),
         ],
@@ -150,29 +116,45 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
 
   Widget _buildEmpty(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: AppColors.seaBlue.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(24),
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.seaBlue.withValues(alpha: 0.12),
+                    AppColors.teal.withValues(alpha: 0.06),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: const Icon(
+                Icons.history_rounded,
+                size: 44,
+                color: AppColors.seaBlue,
+              ),
             ),
-            child: const Icon(Icons.history_rounded,
-                size: 40, color: AppColors.seaBlue),
-          ),
-          const SizedBox(height: 20),
-          Text('No Scans Yet',
-              style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 6),
-          Text(
-            'Scan results will appear here\nafter you analyze a fish image.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ],
+            const SizedBox(height: 24),
+            Text(
+              'No scans yet',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap the Scan button below to analyze your first fish image. '
+              'Results appear here for this session.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -181,107 +163,122 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
     final disease = entry.result.disease;
     final pct = (entry.result.confidence * 100).toStringAsFixed(1);
     final timeAgo = _formatTime(entry.timestamp);
-    final isHealthy = disease.isHealthy;
-    final isUnknown = disease.isUnknown;
-    final dotColor = isUnknown
-        ? const Color(0xFF6B7280)
-        : isHealthy
-            ? AppColors.emerald
-            : AppColors.coral;
+    final typeColor = DiseaseVisuals.colorFor(disease.type);
+    final tier = entry.result.confidenceTier;
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => ResultScreen(
-              imagePath: entry.imagePath,
-              existingResult: entry.result,
-            ),
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.deepOcean.withValues(alpha: 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Image.file(
-                File(entry.imagePath),
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  width: 60,
-                  height: 60,
-                  color: AppColors.wave,
-                  child: const Icon(Icons.image_not_supported_rounded,
-                      color: Color(0xFFB0BEC5)),
-                ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ResultScreen(
+                imagePath: entry.imagePath,
+                existingResult: entry.result,
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    disease.name,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+          );
+        },
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.deepOcean.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.file(
+                        File(entry.imagePath),
+                        width: 64,
+                        height: 64,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 64,
+                          height: 64,
+                          color: AppColors.wave,
+                          child: const Icon(
+                            Icons.image_not_supported_rounded,
+                            color: Color(0xFFB0BEC5),
+                          ),
+                        ),
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 14,
+                        height: 14,
                         decoration: BoxDecoration(
-                          color: dotColor,
+                          color: typeColor,
                           shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
                         ),
                       ),
-                      const SizedBox(width: 6),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        '$pct%',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        timeAgo,
+                        disease.name,
                         style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFFB0BEC5),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          _TierChip(tier: tier),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$pct%',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            timeAgo,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFB0BEC5),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textSecondary.withValues(alpha: 0.35),
+                ),
+              ],
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: Color(0xFFD5DCE0)),
-          ],
+          ),
         ),
       ),
     );
@@ -293,5 +290,36 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     return '${diff.inDays}d ago';
+  }
+}
+
+class _TierChip extends StatelessWidget {
+  const _TierChip({required this.tier});
+
+  final ConfidenceTier tier;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (tier) {
+      ConfidenceTier.high => ('High', AppColors.emerald),
+      ConfidenceTier.medium => ('Med', AppColors.amber),
+      ConfidenceTier.low => ('Low', AppColors.coral),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
+      ),
+    );
   }
 }

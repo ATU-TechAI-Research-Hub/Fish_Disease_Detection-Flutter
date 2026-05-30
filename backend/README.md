@@ -1,77 +1,119 @@
-# FastAPI Backend
+# AquaScan Backend (FastAPI)
 
-This backend serves the fish disease classifier for the Flutter app, implementing
-the custom CNN architecture from Tamut et al., *Aquac. J.* 2025, 5, 6.
+This is the inference / training backend for AquaScan, implementing the custom
+CNN architecture from Tamut et al., *Aquac. J.* 2025, 5(1), 6 (doi: 10.3390/aquacj5010006).
 
-It uses:
+## Highlights
 
-- a dataset manifest generated from the original Train/Test folders (2444 images, 7 classes)
-- a PyTorch training pipeline reproducing the paper's CNN (150x150 input, 3 Conv2D layers, BatchNorm, Dropout, Dense(256), Softmax)
-- an exported ONNX model (8.40 MB, 2,201,639 parameters)
-- ONNX Runtime inference inside FastAPI
+| Component | Tech |
+|-----------|------|
+| Web server | FastAPI + Uvicorn |
+| ML inference (primary) | TensorFlow / Keras (`.h5`) |
+| ML inference (fallback) | ONNX Runtime (offline-friendly) |
+| Training | Keras (`Adam`, `categorical_crossentropy`, `EarlyStopping`, `ReduceLROnPlateau`) |
+| Image input | 150×150 RGB, normalised by /255 (matches the paper) |
+
+The backend uses `model/model.h5` (when present) as the primary inference
+artifact. If it cannot be found, it transparently falls back to the legacy ONNX
+model in `backend/app/ml/fish_disease_classifier.onnx`. Both backends share the
+same preprocessing pipeline (`app/core/preprocessing.py`), so predictions are
+consistent across both modes.
+
+## Project layout
+
+```
+backend/
+├── app/
+│   ├── core/
+│   │   ├── preprocessing.py       # Paper-exact preprocessing pipeline (150x150, /255)
+│   │   ├── labels.py              # Loads model/labels.json (typed dataclasses)
+│   │   └── model_loader.py        # KerasH5Model + OnnxModel (unified interface)
+│   ├── ml/
+│   │   └── fish_disease_classifier.onnx  # ONNX fallback model (offline)
+│   ├── services/
+│   │   └── prediction_service.py  # High-level prediction logic + tiers
+│   ├── main.py                    # FastAPI app + routes
+│   └── models.py                  # Pydantic request/response models
+├── train/
+│   ├── train.py                   # Paper-exact Keras trainer → model/model.h5
+│   └── evaluate.py                # Evaluation: accuracy + confusion matrix + per-class P/R/F1
+├── tests/
+│   ├── smoke_test.py              # End-to-end HTTP smoke test
+│   └── predict_cli.py             # Direct (no-API) CLI prediction
+├── outputs/                       # Training & evaluation reports (generated)
+├── requirements.txt
+└── run_backend.bat
+```
 
 ## Setup
 
-```bash
+```powershell
 cd backend
 python -m venv .venv
+.venv\Scripts\python.exe -m pip install --upgrade pip
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Optional, for GPU training with CUDA-enabled PyTorch on Windows:
+## Train `model.h5`
 
-```bash
-.venv\Scripts\python.exe -m pip install --index-url https://download.pytorch.org/whl/cu128 torch torchvision
+The trainer reads images directly from
+`Freshwater_Fish_Disease_Aquaculture_in_south_asia/Train/<class>/...` and writes
+the result to `model/model.h5`.
+
+```powershell
+.venv\Scripts\python.exe -m train.train
+.venv\Scripts\python.exe -m train.train --epochs 50 --batch-size 32
 ```
 
-## Prepare The Dataset
+Training also writes:
 
-This scans `Freshwater_Fish_Disease_Aquaculture_in_south_asia/Train` and `Test`,
-detects duplicate filename stems, reconciles `Train.csv`, and creates clean
-train/validation/test manifests in `backend/train/artifacts/`.
+- `backend/outputs/training_history.json` — per-epoch loss & accuracy
+- `backend/outputs/training_summary.json` — config + final metrics
 
-```bash
-.venv\Scripts\python.exe -m train.prepare_dataset
+## Evaluate the model
+
+```powershell
+.venv\Scripts\python.exe -m train.evaluate
 ```
 
-## Train And Export The Model
+This walks the `Test/` folder, computes predictions, and writes to
+`backend/outputs/`:
 
-This trains the classifier, evaluates it, and exports:
+- `evaluation_summary.json` — accuracy, loss, macro/weighted P/R/F1
+- `classification_report.json` — per-class precision / recall / F1
+- `confusion_matrix.csv` + `confusion_matrix.json`
 
-- `backend/app/ml/fish_disease_classifier.onnx`
-- `backend/app/ml/class_map.json`
-- training metrics in `backend/train/artifacts/`
+## Run the API
 
-```bash
-.venv\Scripts\python.exe -m train.train_classifier --epochs 50
-```
-
-## Run The API
-
-```bash
-.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Or on Windows, just run:
-
-```bash
+```powershell
 run_backend.bat
 ```
 
-## Smoke Test The API
+or manually:
 
-```bash
-.venv\Scripts\python.exe tests\smoke_test.py --image-path "path\to\fish.jpg"
+```powershell
+.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## Runtime Note
+## Smoke-test the API
 
-- FastAPI prefers `onnxruntime-gpu` when the required CUDA 12 and cuDNN 9 runtime DLLs are available on the machine.
-- If those DLLs are missing, the backend now falls back cleanly to `onnxruntime-cpu` and still serves real predictions.
+```powershell
+.venv\Scripts\python.exe -m tests.smoke_test
+```
+
+## No-API CLI prediction
+
+```powershell
+.venv\Scripts\python.exe -m tests.predict_cli --image-path "..\Freshwater_Fish_Disease_Aquaculture_in_south_asia\Test\Bacterial Red disease\Bacterial Red disease (1).jpg"
+```
 
 ## Endpoints
 
-- `GET /` - base info page
-- `GET /health` - health check
-- `GET /diseases` - list all disease classes
-- `POST /predict` - upload image (`file`) and get a real classifier prediction
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Service info |
+| `GET` | `/health` | Liveness + model status |
+| `GET` | `/model/info` | Detailed model status (backend, path, device, num_classes) |
+| `GET` | `/diseases` | All 7 disease records (cause / symptoms / treatment / prevention) |
+| `POST` | `/predict` | Multipart upload `file` → `PredictionResponse` |
+| `GET` | `/docs` | Swagger UI |

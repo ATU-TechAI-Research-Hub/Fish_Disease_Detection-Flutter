@@ -1,15 +1,14 @@
 {
   "image_size": 150,
-  "mean": [
-    0.0,
-    0.0,
-    0.0
-  ],
-  "std": [
-    1.0,
-    1.0,
-    1.0
-  ],
+  "color_mode": "rgb",
+  "preprocessing": {
+    "resize": [150, 150],
+    "rescale": "divide_by_255",
+    "mean": [0.0, 0.0, 0.0],
+    "std": [1.0, 1.0, 1.0]
+  },
+  "model_name": "paper_cnn_keras",
+  "paper_reference": "Tamut et al., Aquac. J. 2025, 5(1), 6 (doi:10.3390/aquacj5010006)",
   "classes": [
     {
       "class_index": 0,
@@ -53,6 +52,5 @@
       "disease_id": 7,
       "disease_name": "Viral Disease - White Tail Disease"
     }
-  ],
-  "model_name": "paper_cnn"
+  ]
 }
