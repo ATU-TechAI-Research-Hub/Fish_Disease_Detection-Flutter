@@ -58,6 +58,10 @@ prediction is too uncertain (low max-confidence or high entropy).
   - top-3 predictions with progress bars
 - Loading state with animated header
 - Connection / "Offline mode" indicator that polls `/health`
+- **Google Sign-In (Firebase Auth)** with persistent sessions and a guest-mode
+  fallback — see [Authentication setup](#authentication-setup)
+- **Dark / light mode** (system default, user-overridable from the account sheet)
+- Pre-upload image quality validation (resolution, aspect ratio, file size)
 - Scan history with re-open + clear-all
 - Disease library — read about each class without scanning
 - Accessibility:
@@ -186,6 +190,34 @@ For physical Android/iOS devices, set `lanIp` in
 
 ---
 
+## Authentication setup
+
+Google Sign-In (Firebase Authentication) is fully wired in the app.
+Out of the box — before you attach a Firebase project — the login screen
+offers **Continue as Guest**, and every feature works without an account.
+
+To enable the Google button:
+
+1. Create a project at [console.firebase.google.com](https://console.firebase.google.com)
+   and enable **Authentication → Sign-in method → Google**.
+2. Register the Android app (`com.example.aquaculture`) and add your debug
+   SHA-1 fingerprint (`cd android && ./gradlew signingReport`).
+3. From the project root run:
+
+   ```bash
+   dart pub global activate flutterfire_cli
+   flutterfire configure
+   ```
+
+   This replaces the placeholder `lib/firebase_options.dart` with real
+   per-platform options and downloads `android/app/google-services.json`.
+
+Sessions persist automatically (Firebase secure storage); guest mode persists
+via `shared_preferences`. Sign out from the avatar → account sheet on the
+Home screen.
+
+---
+
 ## How `model.h5` is loaded
 
 `backend/app/main.py` resolves the model in this order:
@@ -305,6 +337,19 @@ Direct (no HTTP) CLI prediction:
 
 ```powershell
 .venv\Scripts\python.exe -m tests.predict_cli --image-path "..\Freshwater_Fish_Disease_Aquaculture_in_south_asia\Test\Bacterial Red disease\Bacterial Red disease (1).jpg"
+```
+
+Automated API test suite (validation, determinism, preprocessing parity):
+
+```powershell
+cd backend
+.venv\Scripts\python.exe -m pytest tests\test_api.py -v
+```
+
+Flutter unit + widget tests (auth flows, app boot, guest session restore):
+
+```powershell
+flutter test
 ```
 
 ---
