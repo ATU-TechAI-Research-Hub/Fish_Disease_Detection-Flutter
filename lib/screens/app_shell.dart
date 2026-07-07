@@ -81,8 +81,6 @@ class _AppShellState extends State<AppShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) => setState(() => _currentIndex = i),
-        backgroundColor: Colors.white,
-        indicatorColor: AppColors.seaBlue.withValues(alpha: 0.12),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: const [
           NavigationDestination(

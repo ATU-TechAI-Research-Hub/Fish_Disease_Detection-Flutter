@@ -38,7 +38,6 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
     final entries = ScanHistoryService.instance.entries;
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
       body: Column(
         children: [
           AppPageHeader(
@@ -182,11 +181,11 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
         borderRadius: BorderRadius.circular(18),
         child: Ink(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.surfaceCard,
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: AppColors.deepOcean.withValues(alpha: 0.04),
+                color: context.cardShadow,
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
@@ -238,10 +237,10 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                     children: [
                       Text(
                         disease.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
+                          color: context.textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -253,10 +252,10 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                           const SizedBox(width: 8),
                           Text(
                             '$pct%',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.textSecondary,
+                              color: context.textSecondary,
                             ),
                           ),
                           const SizedBox(width: 8),

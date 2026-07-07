@@ -43,7 +43,7 @@ class ScanOptionsSheet extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottom),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.surfaceCard,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -60,7 +60,7 @@ class ScanOptionsSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: const Color(0xFFE2E8F0),
+              color: context.subtleBorder,
               borderRadius: BorderRadius.circular(2),
             ),
           ),

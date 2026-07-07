@@ -48,7 +48,7 @@ class DiseaseCategoryStrip extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
+                    color: context.textPrimary,
                     height: 1.15,
                   ),
                 ),
