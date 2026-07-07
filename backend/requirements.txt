@@ -15,3 +15,7 @@ tensorflow
 # Inference (ONNX — offline-only fallback for legacy artifacts)
 onnx
 onnxruntime
+
+# Testing
+pytest
+httpx

@@ -2,14 +2,32 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../services/image_quality.dart';
 import '../theme/app_theme.dart';
 import 'result_screen.dart';
 
 /// Review the captured image before sending it to the AI backend.
-class ScanPreviewScreen extends StatelessWidget {
+/// Runs a local quality check (resolution, aspect ratio, file size) and
+/// surfaces soft warnings so users can retake poor photos before uploading.
+class ScanPreviewScreen extends StatefulWidget {
   const ScanPreviewScreen({required this.imagePath, super.key});
 
   final String imagePath;
+
+  @override
+  State<ScanPreviewScreen> createState() => _ScanPreviewScreenState();
+}
+
+class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
+  late final Future<ImageQualityReport> _quality;
+
+  String get imagePath => widget.imagePath;
+
+  @override
+  void initState() {
+    super.initState();
+    _quality = checkImageQuality(imagePath);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +120,7 @@ class ScanPreviewScreen extends StatelessWidget {
               20 + MediaQuery.paddingOf(context).bottom,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.surfaceCard,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
               boxShadow: [
                 BoxShadow(
@@ -126,6 +144,46 @@ class ScanPreviewScreen extends StatelessWidget {
                   'The image will be sent to your local AquaScan server '
                   'for CNN classification.',
                   style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                FutureBuilder<ImageQualityReport>(
+                  future: _quality,
+                  builder: (context, snapshot) {
+                    final report = snapshot.data;
+                    if (report == null || report.isAcceptable) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.amber.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.amber.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.warning_amber_rounded,
+                                color: AppColors.amber, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                report.warnings.join('\n'),
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.4,
+                                  color: context.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 20),
                 FilledButton.icon(
@@ -152,9 +210,9 @@ class ScanPreviewScreen extends StatelessWidget {
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Choose Another'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary,
+                    foregroundColor: context.textSecondary,
                     minimumSize: const Size.fromHeight(50),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    side: BorderSide(color: context.subtleBorder),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
