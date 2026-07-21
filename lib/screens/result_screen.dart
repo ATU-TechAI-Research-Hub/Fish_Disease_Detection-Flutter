@@ -578,6 +578,7 @@ class _ResultBody extends StatelessWidget {
         children: [
           ConfidenceRing(
             confidence: result.confidence,
+            tier: result.confidenceTier,
             size: 88,
             strokeWidth: 7,
           ),

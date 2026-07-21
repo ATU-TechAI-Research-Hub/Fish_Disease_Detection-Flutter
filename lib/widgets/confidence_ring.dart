@@ -2,17 +2,20 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../models/prediction_result_model.dart';
 import '../theme/app_theme.dart';
 
 class ConfidenceRing extends StatefulWidget {
   const ConfidenceRing({
     required this.confidence,
+    required this.tier,
     this.size = 100,
     this.strokeWidth = 8,
     super.key,
   });
 
   final double confidence;
+  final ConfidenceTier tier;
   final double size;
   final double strokeWidth;
 
@@ -45,10 +48,12 @@ class _ConfidenceRingState extends State<ConfidenceRing>
     super.dispose();
   }
 
-  Color _getColor(double value) {
-    if (value >= 0.8) return AppColors.emerald;
-    if (value >= 0.5) return AppColors.amber;
-    return AppColors.coral;
+  Color _getColor(ConfidenceTier tier) {
+    return switch (tier) {
+      ConfidenceTier.high => AppColors.emerald,
+      ConfidenceTier.medium => AppColors.amber,
+      ConfidenceTier.low => AppColors.coral,
+    };
   }
 
   @override
@@ -57,7 +62,7 @@ class _ConfidenceRingState extends State<ConfidenceRing>
       animation: _animation,
       builder: (context, child) {
         final animatedValue = widget.confidence * _animation.value;
-        final color = _getColor(widget.confidence);
+        final color = _getColor(widget.tier);
         final pct = (animatedValue * 100).toStringAsFixed(1);
 
         return SizedBox(
@@ -88,7 +93,7 @@ class _ConfidenceRingState extends State<ConfidenceRing>
                     style: TextStyle(
                       fontSize: widget.size * 0.09,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
+                      color: context.textSecondary,
                       height: 1,
                     ),
                   ),

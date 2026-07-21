@@ -100,10 +100,10 @@ class KerasH5Model(BaseModel):
 
         output_shape = self._model.output_shape
         if not isinstance(output_shape, tuple) or output_shape[-1] != num_classes:
-            logger.warning(
-                "Model output (%s) != expected num_classes (%d). "
-                "Predictions may be misaligned with labels.json.",
-                output_shape, num_classes,
+            raise ModelLoadError(
+                f"Model output shape {output_shape} does not match "
+                f"labels.json ({num_classes} classes). Refusing to serve "
+                "potentially mislabelled predictions."
             )
 
         self._h5_path = h5_path
@@ -151,6 +151,16 @@ class OnnxModel(BaseModel):
         self._session = ort.InferenceSession(str(onnx_path), providers=providers)
         self._input_name = self._session.get_inputs()[0].name
         self._input_shape = self._session.get_inputs()[0].shape
+        output_shape = self._session.get_outputs()[0].shape
+        if (
+            output_shape
+            and isinstance(output_shape[-1], int)
+            and output_shape[-1] != num_classes
+        ):
+            raise ModelLoadError(
+                f"ONNX output shape {output_shape} does not match "
+                f"labels.json ({num_classes} classes)."
+            )
         self._onnx_path = onnx_path
         self._num_classes = num_classes
         self._image_size = image_size

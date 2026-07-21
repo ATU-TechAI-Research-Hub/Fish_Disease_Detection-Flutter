@@ -2,6 +2,31 @@
 
 All notable changes to AquaScan are documented here.
 
+## [Unreleased] — accuracy research update (2026-07-21)
+
+### Improved — disease model research pipeline
+
+- Added ImageNet-pretrained MobileNetV2 as the recommended training
+  architecture, with frozen-backbone warm-up followed by low-learning-rate
+  fine-tuning. The paper CNN remains available for controlled comparison.
+- Replaced Keras's separate image loader with the production preprocessing
+  path, eliminating EXIF/resize differences between training and inference;
+  exact validation file lists are now persisted for reproducibility.
+- Replaced default raw inverse-frequency weights with effective-number class
+  weighting (Cui et al., CVPR 2019); both prior weighting modes remain
+  selectable for ablation studies.
+- Avoided double regularization by using AdamW weight decay or kernel L2,
+  rather than applying both simultaneously.
+- Added a read-only dataset audit for corruption, imbalance, exact duplicates,
+  conflicting labels, and perceptually similar Train/Test images.
+- Expanded evaluation with balanced accuracy, MCC, Cohen's kappa, multiclass
+  Brier score and expected calibration error alongside top-1/top-3 accuracy
+  and per-class metrics.
+- Added research rationale, reproducible experiment commands, honest model
+  promotion criteria, and five focused unit tests. No higher accuracy is
+  claimed until the candidate is retrained and evaluated on the untouched
+  dataset.
+
 ## [Unreleased] — feature/auth-ui-prediction-improvements (2026-07-07)
 
 ### Added — Authentication

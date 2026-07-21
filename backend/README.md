@@ -35,8 +35,10 @@ backend/
 │   ├── main.py                    # FastAPI app + routes
 │   └── models.py                  # Pydantic request/response models
 ├── train/
-│   ├── train.py                   # Paper-exact Keras trainer → model/model.h5
-│   └── evaluate.py                # Evaluation: accuracy + confusion matrix + per-class P/R/F1
+│   ├── audit_dataset.py           # Duplicate/leakage, corruption and balance audit
+│   ├── data.py                    # Inference-aligned loader + deterministic split
+│   ├── train.py                   # MobileNetV2 transfer learning or paper CNN
+│   └── evaluate.py                # Accuracy, calibration and robust imbalance metrics
 ├── tests/
 │   ├── smoke_test.py              # End-to-end HTTP smoke test
 │   └── predict_cli.py             # Direct (no-API) CLI prediction
@@ -60,15 +62,22 @@ The trainer reads images directly from
 `Freshwater_Fish_Disease_Aquaculture_in_south_asia/Train/<class>/...` and writes
 the result to `model/model.h5`.
 
+The default is now ImageNet-pretrained MobileNetV2 with staged fine-tuning.
+The original architecture remains available with `--architecture paper_cnn`.
+See [ACCURACY_RESEARCH.md](ACCURACY_RESEARCH.md) for the evidence, limitations,
+leakage audit, controlled comparison protocol and model promotion criteria.
+
 ```powershell
+.venv\Scripts\python.exe -m train.audit_dataset
 .venv\Scripts\python.exe -m train.train
-.venv\Scripts\python.exe -m train.train --epochs 50 --batch-size 32
+.venv\Scripts\python.exe -m train.train --architecture paper_cnn
 ```
 
 Training also writes:
 
 - `backend/outputs/training_history.json` — per-epoch loss & accuracy
 - `backend/outputs/training_summary.json` — config + final metrics
+- `backend/outputs/validation_split.json` — exact reproducible file split
 
 ## Evaluate the model
 
@@ -79,7 +88,8 @@ Training also writes:
 This walks the `Test/` folder, computes predictions, and writes to
 `backend/outputs/`:
 
-- `evaluation_summary.json` — accuracy, loss, macro/weighted P/R/F1
+- `evaluation_summary.json` — top-1/top-3 and balanced accuracy, loss,
+  macro/weighted P/R/F1, MCC, Cohen's kappa, Brier score and ECE
 - `classification_report.json` — per-class precision / recall / F1
 - `confusion_matrix.csv` + `confusion_matrix.json`
 
