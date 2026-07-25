@@ -60,16 +60,13 @@ class BackendStatusService extends ChangeNotifier {
     String deviceName = _deviceName;
 
     try {
-      final response = await http
-          .get(uri)
-          .timeout(const Duration(seconds: 4));
+      final response = await http.get(uri).timeout(const Duration(seconds: 4));
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final modelReady = body['model_ready'] == true;
         backendName = body['backend']?.toString() ?? backendName;
         deviceName = body['device']?.toString() ?? deviceName;
-        newStatus =
-            modelReady ? BackendStatus.online : BackendStatus.degraded;
+        newStatus = modelReady ? BackendStatus.online : BackendStatus.degraded;
       } else {
         newStatus = BackendStatus.degraded;
       }

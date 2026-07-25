@@ -60,6 +60,17 @@ model/*.h5
 backend/app/ml/model.h5
 backend/app/ml/*.h5
 
+# Local aquaculture assistant artifacts
+# GGUF files are 4-5 GB each and must be installed locally, never committed.
+*.gguf
+AI chatbot/models/
+AI chatbot/.venv/
+AI chatbot/vector_db/
+AI chatbot/chat_history/
+AI chatbot/faiss_index/
+AI chatbot/screenshots/
+AI chatbot/*.sqlite3
+
 
 # PowerPoint poster files
 *.pptx

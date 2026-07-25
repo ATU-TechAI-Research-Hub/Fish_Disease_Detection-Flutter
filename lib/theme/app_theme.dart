@@ -41,8 +41,7 @@ extension AppThemeContext on BuildContext {
   bool get isDarkMode => Theme.of(this).brightness == Brightness.dark;
 
   /// Card / elevated surface background.
-  Color get surfaceCard =>
-      isDarkMode ? AppColors.cardBgDark : AppColors.cardBg;
+  Color get surfaceCard => isDarkMode ? AppColors.cardBgDark : AppColors.cardBg;
 
   /// Primary body text.
   Color get textPrimary =>
@@ -57,9 +56,8 @@ extension AppThemeContext on BuildContext {
       isDarkMode ? AppColors.dividerDark : AppColors.divider;
 
   /// Soft aqua-tinted background used for info panels.
-  Color get tintedSurface => isDarkMode
-      ? AppColors.seaBlue.withValues(alpha: 0.14)
-      : AppColors.wave;
+  Color get tintedSurface =>
+      isDarkMode ? AppColors.seaBlue.withValues(alpha: 0.14) : AppColors.wave;
 
   /// Soft shadow color for cards (transparent-ish in dark mode).
   Color get cardShadow => isDarkMode
@@ -149,7 +147,8 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         height: 72,
         backgroundColor: card,
-        indicatorColor: AppColors.seaBlue.withValues(alpha: isDark ? 0.3 : 0.12),
+        indicatorColor:
+            AppColors.seaBlue.withValues(alpha: isDark ? 0.3 : 0.12),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(

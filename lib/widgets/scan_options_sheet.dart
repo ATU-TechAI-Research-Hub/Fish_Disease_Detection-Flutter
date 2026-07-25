@@ -86,9 +86,10 @@ class ScanOptionsSheet extends StatelessWidget {
                   child: PrimaryActionCard(
                     icon: Icons.camera_alt_rounded,
                     title: 'Camera',
-                    subtitle: cameraEnabled && (Platform.isAndroid || Platform.isIOS)
-                        ? 'Take a live photo'
-                        : 'Mobile only',
+                    subtitle:
+                        cameraEnabled && (Platform.isAndroid || Platform.isIOS)
+                            ? 'Take a live photo'
+                            : 'Mobile only',
                     colors: const [AppColors.seaBlue, AppColors.aqua],
                     onTap: cameraEnabled ? onCamera : null,
                   ),

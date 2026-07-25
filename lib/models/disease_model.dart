@@ -18,7 +18,8 @@ class DiseaseModel {
   final String prevention;
 
   bool get isHealthy => name.toLowerCase() == 'healthy fish';
-  bool get isUnknown => type.toLowerCase() == 'unknown' || name.toLowerCase().contains('no fish');
+  bool get isUnknown =>
+      type.toLowerCase() == 'unknown' || name.toLowerCase().contains('no fish');
 
   factory DiseaseModel.fromJson(Map<String, dynamic> json) {
     final dynamic rawId = json['id'];
@@ -32,4 +33,14 @@ class DiseaseModel {
       prevention: json['prevention']?.toString() ?? 'No prevention available.',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'type': type,
+        'cause': cause,
+        'symptoms': symptoms,
+        'treatment': treatment,
+        'prevention': prevention,
+      };
 }

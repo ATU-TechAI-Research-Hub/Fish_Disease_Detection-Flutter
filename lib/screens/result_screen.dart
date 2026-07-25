@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 
 import '../models/prediction_result_model.dart';
 import '../services/api_prediction_service.dart';
+import '../services/assistant_controller.dart';
 import '../services/scan_history_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bubble_background.dart';
@@ -45,6 +47,12 @@ class _ResultScreenState extends State<ResultScreen>
 
     if (widget.existingResult != null) {
       _predictionFuture = Future.value(widget.existingResult!);
+      unawaited(
+        AssistantController.instance.attachPrediction(
+          widget.existingResult!,
+          publishToBackend: true,
+        ),
+      );
       _fadeController.forward();
     } else {
       _predictionFuture = _predict();
@@ -52,8 +60,11 @@ class _ResultScreenState extends State<ResultScreen>
   }
 
   Future<PredictionResultModel> _predict() async {
-    final result =
-        await _apiService.predictDiseaseFromImage(widget.imagePath);
+    final result = await _apiService.predictDiseaseFromImage(
+      widget.imagePath,
+      assistantSessionId: AssistantController.instance.sessionId,
+    );
+    await AssistantController.instance.attachPrediction(result);
     ScanHistoryService.instance.add(result, widget.imagePath);
     _fadeController.forward();
     return result;
@@ -119,8 +130,7 @@ class _LoadingView extends StatelessWidget {
           child: Column(
             children: [
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Row(
                   children: [
                     IconButton(
@@ -405,6 +415,8 @@ class _ResultBody extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildAskAssistant(context),
+                const SizedBox(height: 14),
                 if (isUnknown) ...[
                   _buildNoFishCard(context),
                   if (result.warning != null) ...[
@@ -501,6 +513,29 @@ class _ResultBody extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAskAssistant(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: () {
+          unawaited(
+            AssistantController.instance.attachPrediction(
+              result,
+              publishToBackend: true,
+            ),
+          );
+          AssistantController.instance.open();
+        },
+        icon: const Icon(Icons.auto_awesome_rounded),
+        label: const Text('Ask AI about this result'),
+        style: FilledButton.styleFrom(
+          backgroundColor:
+              context.isDarkMode ? AppColors.seaBlue : AppColors.ocean,
+        ),
+      ),
     );
   }
 

@@ -75,8 +75,7 @@ class _BubblePainter extends CustomPainter {
     for (final b in bubbles) {
       final phase = (progress + b.phase) % 1.0;
       final y = size.height * (1.0 - phase);
-      final x = size.width * b.xRatio +
-          math.sin(phase * math.pi * 4) * 12;
+      final x = size.width * b.xRatio + math.sin(phase * math.pi * 4) * 12;
       final alpha = (0.12 * (1.0 - (phase - 0.5).abs() * 2)).clamp(0.0, 0.12);
       paint.color = Colors.white.withValues(alpha: alpha);
       canvas.drawCircle(Offset(x, y), b.radius, paint);

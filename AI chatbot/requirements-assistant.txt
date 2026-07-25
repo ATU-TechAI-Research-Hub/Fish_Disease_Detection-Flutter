@@ -1,0 +1,10 @@
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+
+# Kept separate from backend/requirements.txt because Sentence Transformers
+# brings PyTorch while fish inference uses TensorFlow/ONNX.
+faiss-cpu>=1.8
+sentence-transformers>=3.0
+llama-cpp-python>=0.3
+pypdf>=5.0
+openpyxl>=3.1
+xlrd>=2.0

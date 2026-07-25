@@ -100,7 +100,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 28),
                 const SectionHeader(
                   title: 'Start a scan',
-                  subtitle: 'Capture or upload a clear fish photo for analysis.',
+                  subtitle:
+                      'Capture or upload a clear fish photo for analysis.',
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -155,7 +156,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 28),
                 const SectionHeader(
                   title: 'How it works',
-                  subtitle: 'Four quick steps from photo to treatment guidance.',
+                  subtitle:
+                      'Four quick steps from photo to treatment guidance.',
                 ),
                 const SizedBox(height: 14),
                 const HowItWorksStrip(),
@@ -408,9 +410,10 @@ class _PhotoTipsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          ...['Side view of the fish in clear water',
-              'Good lighting — avoid heavy shadows',
-              'Fill the frame; avoid hands or nets',
+          ...[
+            'Side view of the fish in clear water',
+            'Good lighting — avoid heavy shadows',
+            'Fill the frame; avoid hands or nets',
           ].map(
             (tip) => Padding(
               padding: const EdgeInsets.only(bottom: 6),

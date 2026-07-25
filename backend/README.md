@@ -10,6 +10,7 @@ CNN architecture from Tamut et al., *Aquac. J.* 2025, 5(1), 6 (doi: 10.3390/aqua
 | Web server | FastAPI + Uvicorn |
 | ML inference (primary) | TensorFlow / Keras (`.h5`) |
 | ML inference (fallback) | ONNX Runtime (offline-friendly) |
+| Aquaculture assistant | FAISS + MiniLM + llama.cpp (local GGUF) |
 | Training | Keras (`Adam`, `categorical_crossentropy`, `EarlyStopping`, `ReduceLROnPlateau`) |
 | Image input | 150×150 RGB, normalised by /255 (matches the paper) |
 
@@ -54,7 +55,12 @@ cd backend
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install --upgrade pip
 .venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install -r "..\AI chatbot\requirements-assistant.txt"
 ```
+
+The assistant requirements are separate because they add PyTorch, FAISS, and
+llama.cpp. See [`AI chatbot/README.md`](../AI%20chatbot/README.md) for local
+GGUF paths, knowledge ingestion, configuration, and the streaming protocol.
 
 ## Train `model.h5`
 
@@ -126,4 +132,12 @@ or manually:
 | `GET` | `/model/info` | Detailed model status (backend, path, device, num_classes) |
 | `GET` | `/diseases` | All 7 disease records (cause / symptoms / treatment / prevention) |
 | `POST` | `/predict` | Multipart upload `file` → `PredictionResponse` |
+| `GET` | `/assistant/health` | Local model and vector-index status |
+| `GET` | `/assistant/models` | Available Qwen, Mistral, and Llama GGUF models |
+| `GET` / `DELETE` | `/assistant/history/{session_id}` | Load or clear persistent chat |
+| `DELETE` | `/assistant/session/{session_id}` | Delete chat and prediction context |
+| `POST` | `/assistant/prediction-context` | Attach an existing scan result |
+| `POST` | `/assistant/chat` | Non-streaming RAG response |
+| `POST` | `/assistant/chat/stream` | NDJSON token stream |
+| `POST` | `/assistant/reindex` | Force a knowledge-base rebuild |
 | `GET` | `/docs` | Swagger UI |

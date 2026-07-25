@@ -80,7 +80,8 @@ class _ScanHistoryScreenState extends State<ScanHistoryScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
                     itemCount: entries.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, i) => _buildTile(context, entries[i]),
+                    itemBuilder: (context, i) =>
+                        _buildTile(context, entries[i]),
                   ),
           ),
         ],

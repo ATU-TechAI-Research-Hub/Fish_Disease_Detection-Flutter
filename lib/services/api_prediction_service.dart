@@ -19,7 +19,7 @@ import '../models/prediction_result_model.dart';
 /// (run `ipconfig` on Windows or `ipconfig getifaddr en0` on macOS).
 class ApiPredictionService {
   ApiPredictionService({String? baseUrl})
-      : baseUrl = baseUrl ?? _defaultBaseUrl();
+      : baseUrl = baseUrl ?? defaultBaseUrl();
 
   final String baseUrl;
 
@@ -28,12 +28,20 @@ class ApiPredictionService {
   ///
   /// Set to this PC's Wi-Fi IPv4 so a physical phone on the same network can
   /// reach the backend. Phone and PC must share the same Wi-Fi.
-  static const String lanIp = 'http://10.201.1.211:8000';
+  static const String lanIp = 'http://192.168.1.74:8000';
+
+  /// Launch-time override, for example:
+  /// `--dart-define=AQUASCAN_BACKEND_URL=http://127.0.0.1:8000`
+  static const String configuredBaseUrl = String.fromEnvironment(
+    'AQUASCAN_BACKEND_URL',
+    defaultValue: '',
+  );
 
   /// Default port used by the FastAPI backend (see `run_backend.bat`).
   static const int defaultPort = 8000;
 
-  static String _defaultBaseUrl() {
+  static String defaultBaseUrl() {
+    if (configuredBaseUrl.isNotEmpty) return configuredBaseUrl;
     if (lanIp.isNotEmpty) return lanIp;
     if (kIsWeb) return 'http://127.0.0.1:$defaultPort';
     if (Platform.isAndroid) return 'http://10.0.2.2:$defaultPort';
@@ -45,7 +53,9 @@ class ApiPredictionService {
   /// Throws an [Exception] with a friendly message on connection / parsing /
   /// HTTP errors so the UI can render it directly.
   Future<PredictionResultModel> predictDiseaseFromImage(
-      String imagePath) async {
+    String imagePath, {
+    String? assistantSessionId,
+  }) async {
     final file = File(imagePath);
     if (!await file.exists()) {
       throw Exception('Image file not found at: $imagePath');
@@ -53,6 +63,9 @@ class ApiPredictionService {
 
     final Uri uri = Uri.parse('$baseUrl/predict');
     final request = http.MultipartRequest('POST', uri);
+    if (assistantSessionId != null && assistantSessionId.isNotEmpty) {
+      request.fields['assistant_session_id'] = assistantSessionId;
+    }
 
     final ext = imagePath.split('.').last.toLowerCase();
     final mimeType = switch (ext) {

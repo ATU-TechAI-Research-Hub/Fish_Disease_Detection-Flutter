@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import logging
 import os
+import re
+import sys
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -41,6 +43,22 @@ LABELS_FILE = PROJECT_ROOT / "model" / "labels.json"
 H5_PRIMARY = PROJECT_ROOT / "model" / "model.h5"
 H5_LEGACY = PROJECT_ROOT / "backend" / "app" / "ml" / "model.h5"
 ONNX_FALLBACK = PROJECT_ROOT / "backend" / "app" / "ml" / "fish_disease_classifier.onnx"
+CHATBOT_ROOT = PROJECT_ROOT / "AI chatbot"
+
+# The assistant package lives beside its local GGUF/FAISS resources. Heavy
+# dependencies are lazy, so importing the router does not load a model.
+assistant_runtime = None
+assistant_router = None
+if CHATBOT_ROOT.is_dir():
+    if str(CHATBOT_ROOT) not in sys.path:
+        sys.path.insert(0, str(CHATBOT_ROOT))
+    try:
+        from aquaculture_assistant.api import (
+            assistant_router,
+            assistant_runtime,
+        )
+    except Exception as exc:  # pragma: no cover - degraded optional feature
+        logger.warning("Aquaculture assistant is unavailable: %s", exc)
 
 # Optional backend preference override.
 # Set AQUASCAN_MODEL_PREFERENCE=onnx to skip the .h5 and force ONNX.
@@ -131,6 +149,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+if assistant_router is not None:
+    app.include_router(assistant_router)
 
 
 @app.middleware("http")
@@ -159,7 +179,17 @@ async def root() -> Dict[str, Any]:
         "message": "AquaScan Fish Disease Detection API is running.",
         "version": app.version,
         "docs": "/docs",
-        "endpoints": ["/health", "/model/info", "/diseases", "/predict"],
+        "endpoints": [
+            "/health",
+            "/model/info",
+            "/diseases",
+            "/predict",
+        ]
+        + (
+            ["/assistant/health", "/assistant/chat/stream"]
+            if assistant_router is not None
+            else []
+        ),
         "paper": "Tamut et al., Aquac. J. 2025 (doi:10.3390/aquacj5010006)",
     }
 
@@ -176,6 +206,11 @@ async def health() -> Dict[str, Any]:
         "backend": status.backend,
         "device": status.device,
         "version": app.version,
+        "assistant": (
+            assistant_runtime.service.status()
+            if assistant_runtime is not None
+            else {"status": "unavailable"}
+        ),
     }
 
 
@@ -194,7 +229,10 @@ async def get_diseases() -> List[Disease]:
 
 
 @app.post("/predict", response_model=PredictionResponse, tags=["inference"])
-async def predict(file: UploadFile = File(...)) -> PredictionResponse:
+async def predict(
+    file: UploadFile = File(...),
+    assistant_session_id: Optional[str] = Form(None),
+) -> PredictionResponse:
     if prediction_service is None:
         raise HTTPException(503, "Service not ready.")
 
@@ -239,4 +277,16 @@ async def predict(file: UploadFile = File(...)) -> PredictionResponse:
         result.confidence_tier.value,
         filename,
     )
+    if (
+        assistant_runtime is not None
+        and assistant_session_id
+        and re.fullmatch(r"[A-Za-z0-9_-]{8,128}", assistant_session_id)
+    ):
+        try:
+            assistant_runtime.service.publish_prediction(
+                assistant_session_id,
+                result.model_dump(mode="json"),
+            )
+        except Exception as exc:  # prediction must succeed even if chat fails
+            logger.warning("Could not publish assistant prediction context: %s", exc)
     return result

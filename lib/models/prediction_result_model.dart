@@ -50,6 +50,12 @@ class ClassProbability {
           : double.tryParse(rawConf?.toString() ?? '') ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'disease_id': diseaseId,
+        'disease_name': diseaseName,
+        'confidence': confidence,
+      };
 }
 
 class PredictionResultModel {
@@ -101,9 +107,22 @@ class PredictionResultModel {
       warning: (json['warning'] as String?)?.trim().isEmpty == true
           ? null
           : json['warning']?.toString(),
-      recommendation: (json['recommendation'] as String?)?.trim().isEmpty == true
-          ? null
-          : json['recommendation']?.toString(),
+      recommendation:
+          (json['recommendation'] as String?)?.trim().isEmpty == true
+              ? null
+              : json['recommendation']?.toString(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'prediction': disease.toJson(),
+        'confidence': confidence,
+        'confidence_tier': confidenceTier.name,
+        'source': source,
+        'filename': filename,
+        'inference_ms': inferenceMs,
+        'top_predictions': topPredictions.map((item) => item.toJson()).toList(),
+        'warning': warning,
+        'recommendation': recommendation,
+      };
 }

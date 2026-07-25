@@ -129,9 +129,8 @@ class AccountSheet extends StatelessWidget {
           CircleAvatar(
             radius: 32,
             backgroundColor: AppColors.seaBlue.withValues(alpha: 0.12),
-            foregroundImage: (user?.photoUrl != null)
-                ? NetworkImage(user!.photoUrl!)
-                : null,
+            foregroundImage:
+                (user?.photoUrl != null) ? NetworkImage(user!.photoUrl!) : null,
             child: Icon(
               isGuest ? Icons.person_outline_rounded : Icons.person_rounded,
               size: 32,

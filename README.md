@@ -64,6 +64,12 @@ prediction is too uncertain (low max-confidence or high entropy).
 - Pre-upload image quality validation (resolution, aspect ratio, file size)
 - Scan history with re-open + clear-all
 - Disease library — read about each class without scanning
+- Persistent, collapsible **Aquaculture AI Assistant**:
+  - local Qwen3, Mistral 7B, or Llama 3.1 GGUF inference
+  - FAISS retrieval over aquaculture documents
+  - automatic CNN prediction context
+  - Markdown, token streaming, citations, history, copy, regenerate, and clear
+  - no OpenAI or hosted generation API
 - Accessibility:
   - `Semantics` labels on result tier badges and status pills
   - Tooltips on connection-status icons
@@ -129,6 +135,12 @@ Aquaculture/
 │   ├── requirements.txt
 │   ├── run_backend.bat
 │   └── README.md
+├── AI chatbot/                      # Local aquaculture RAG assistant
+│   ├── aquaculture_assistant/       # RAG, ingestion, prompts, history, API
+│   ├── knowledge/                   # Fish-health and water-quality sources
+│   ├── models/                      # Local GGUF files (Git-ignored)
+│   ├── requirements-assistant.txt
+│   └── README.md
 ├── Freshwater_Fish_Disease_Aquaculture_in_south_asia/   # Kaggle dataset (Train/, Test/)
 ├── pubspec.yaml
 └── README.md
@@ -145,6 +157,7 @@ cd backend
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install --upgrade pip
 .venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install -r "..\AI chatbot\requirements-assistant.txt"
 run_backend.bat                                    # or: python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -152,7 +165,12 @@ Verify in a browser:
 
 - http://127.0.0.1:8000/        → service info
 - http://127.0.0.1:8000/health  → `model_ready: true` once the model is loaded
+- http://127.0.0.1:8000/assistant/health → local LLM and vector-index status
 - http://127.0.0.1:8000/docs    → Swagger UI
+
+The embedding model downloads once during assistant setup and is then cached
+locally. See [`AI chatbot/README.md`](AI%20chatbot/README.md) for GGUF model
+paths, supported knowledge formats, environment variables, and architecture.
 
 ### 2. Train `model.h5` (optional but recommended)
 
@@ -187,6 +205,14 @@ flutter run                # or: flutter run -d windows / chrome / macos
 For physical Android/iOS devices, set `lanIp` in
 `lib/services/api_prediction_service.dart` to your computer's LAN IP
 (`ipconfig` on Windows, `ipconfig getifaddr en0` on macOS).
+
+For a USB-connected Android device, the backend URL can be supplied without
+editing source:
+
+```powershell
+adb reverse tcp:8000 tcp:8000
+flutter run -d <device-id> --dart-define=AQUASCAN_BACKEND_URL=http://127.0.0.1:8000
+```
 
 ---
 
@@ -263,6 +289,10 @@ Everything required to run AquaScan is shipped or generated locally:
 | ONNX fallback | `backend/app/ml/fish_disease_classifier.onnx` |
 | Label mapping | `model/labels.json` |
 | Disease descriptions | `assets/diseases.json` |
+| Assistant knowledge | `AI chatbot/knowledge/` |
+| Local GGUF models | `AI chatbot/models/` |
+| Generated FAISS index | `AI chatbot/vector_db/` |
+| Chat history | `AI chatbot/chat_history/assistant_history.sqlite3` |
 | Backend code | `backend/...` |
 | Flutter app | `lib/...` |
 
@@ -301,6 +331,14 @@ proxy (e.g. Nginx) and update `lanIp` in
 | `GET` | `/model/info` | Full `ModelStatus` (paths, num_classes, image_size) |
 | `GET` | `/diseases` | List of disease metadata records |
 | `POST` | `/predict` | Multipart upload `file` → `PredictionResponse` |
+| `GET` | `/assistant/health` | Local assistant/index status |
+| `GET` | `/assistant/models` | Available local GGUF models |
+| `GET` / `DELETE` | `/assistant/history/{session_id}` | Persistent chat history |
+| `DELETE` | `/assistant/session/{session_id}` | Delete a local assistant session |
+| `POST` | `/assistant/prediction-context` | Attach an existing prediction |
+| `POST` | `/assistant/chat` | Complete local RAG response |
+| `POST` | `/assistant/chat/stream` | NDJSON token stream |
+| `POST` | `/assistant/reindex` | Rebuild aquaculture vectors |
 
 **`PredictionResponse`** payload:
 

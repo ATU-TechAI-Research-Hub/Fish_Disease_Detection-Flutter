@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'screens/app_shell.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
+import 'services/assistant_controller.dart';
 import 'services/backend_status_service.dart';
 import 'services/scan_history_service.dart';
 import 'theme/app_theme.dart';
+import 'widgets/assistant_overlay.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +20,7 @@ Future<void> main() async {
 
   await ThemeController.instance.init();
   await AuthService.instance.init();
+  await AssistantController.instance.init();
   BackendStatusService.instance.start();
 
   runApp(const FishDiseaseApp());
@@ -38,6 +43,11 @@ class FishDiseaseApp extends StatelessWidget {
           darkTheme: AppTheme.dark,
           themeMode: ThemeController.instance.mode,
           home: const _Root(),
+          builder: (context, child) => AssistantOverlay(
+            enabled: AuthService.instance.state == AuthState.signedIn ||
+                AuthService.instance.state == AuthState.guest,
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
     );
@@ -81,9 +91,10 @@ class _RootState extends State<_Root> {
     if (_lastState != null &&
         _lastState != AuthState.signedOut &&
         state == AuthState.signedOut) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => ScanHistoryService.instance.clear(),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScanHistoryService.instance.clear();
+        unawaited(AssistantController.instance.resetSession());
+      });
     }
     _lastState = state;
 

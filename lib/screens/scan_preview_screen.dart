@@ -121,7 +121,8 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
             ),
             decoration: BoxDecoration(
               color: context.surfaceCard,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(28)),
               boxShadow: [
                 BoxShadow(
                   color: AppColors.deepOcean.withValues(alpha: 0.12),

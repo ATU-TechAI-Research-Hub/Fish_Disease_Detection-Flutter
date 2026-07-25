@@ -27,6 +27,11 @@ from PIL import Image
 # The heavyweight fish-presence gate (MobileNetV2) is not what we are testing
 # here — disable it before the app module is imported.
 os.environ.setdefault("AQUASCAN_ENABLE_FISH_GATE", "0")
+os.environ.setdefault("AQUASCAN_ASSISTANT_FAKE", "1")
+os.environ.setdefault(
+    "AQUASCAN_ASSISTANT_HISTORY_DB",
+    str(Path(__file__).resolve().parents[1] / "outputs" / "assistant_test.sqlite3"),
+)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -36,6 +41,7 @@ from app.core.preprocessing import (  # noqa: E402
     PreprocessingError,
     preprocess_image,
 )
+from app import main as main_module  # noqa: E402
 from app.main import app  # noqa: E402
 
 
@@ -151,6 +157,24 @@ def test_predict_returns_full_response(client: TestClient):
     confidences = [p["confidence"] for p in body["top_predictions"]]
     assert confidences == sorted(confidences, reverse=True)
     assert body["prediction"]["name"]
+
+
+def test_predict_publishes_assistant_context(client: TestClient):
+    if not _model_ready(client):
+        pytest.skip("No model artifact available in this environment.")
+    session_id = "test_prediction_bridge_123"
+    resp = client.post(
+        "/predict",
+        data={"assistant_session_id": session_id},
+        files={"file": ("context.png", _png_bytes(), "image/png")},
+    )
+    assert resp.status_code == 200
+    context = (
+        main_module.assistant_runtime.service.prediction_context.get(session_id)
+    )
+    assert context is not None
+    assert context.disease_name == resp.json()["prediction"]["name"]
+    assert context.filename == "context.png"
 
 
 def test_predict_is_deterministic(client: TestClient):

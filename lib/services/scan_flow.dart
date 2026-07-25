@@ -16,8 +16,7 @@ class ScanFlow {
 
   static bool get cameraSupported => Platform.isAndroid || Platform.isIOS;
 
-  static bool get backendReachable =>
-      BackendStatusService.instance.isReachable;
+  static bool get backendReachable => BackendStatusService.instance.isReachable;
 
   static void showBackendError(BuildContext context) {
     _snack(

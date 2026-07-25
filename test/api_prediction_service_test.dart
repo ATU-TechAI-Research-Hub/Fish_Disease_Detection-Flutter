@@ -19,7 +19,8 @@ void main() {
         baseUrl: 'http://127.0.0.1:8000',
       );
 
-      final prediction = await service.predictDiseaseFromImage(sampleImage.path);
+      final prediction =
+          await service.predictDiseaseFromImage(sampleImage.path);
 
       expect(prediction.disease.id, greaterThan(0));
       expect(prediction.disease.name, isNotEmpty);
