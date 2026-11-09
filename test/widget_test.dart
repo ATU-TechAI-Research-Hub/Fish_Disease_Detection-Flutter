@@ -62,6 +62,13 @@ void main() {
     expect(find.text('Start a scan'), findsOneWidget);
     expect(find.byKey(const Key('home_camera_action')), findsOneWidget);
 
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('home_shrimp_counting_action')),
+      180,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Shrimp Counting & Analysis'), findsOneWidget);
+
     await AuthService.instance.signOut();
   });
 }

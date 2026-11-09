@@ -1,13 +1,19 @@
-# AquaScan — AI-Powered Freshwater Fish Disease Detection
+# AquaScan — AI-Powered Aquaculture Analysis
 
-A complete Flutter + FastAPI application that identifies freshwater fish
-diseases from a single photo, implementing the CNN architecture from
+A Flutter + FastAPI application with two independent computer-vision
+capabilities: freshwater fish disease classification and water-gated shrimp
+instance segmentation/counting. Fish diagnosis implements the CNN from
 [Tamut et al., *Aquaculture Journal* 2025, 5(1), 6](https://doi.org/10.3390/aquacj5010006).
 
-The app runs **fully offline** once installed: the model, labels, dataset
-metadata, and disease information are bundled locally and inference is executed
-against a local Keras `model.h5` (primary) with an ONNX fallback. No external
-APIs are contacted for predictions.
+Shrimp Counting & Analysis follows the included INFT 6903 methodology:
+text-prompted SAM 3 water isolation, fine-tuned YOLO11x-seg masks, and OpenCV
+ellipse major-axis length proxies. Model setup and training are documented in
+[backend/SHRIMP_ANALYSIS.md](backend/SHRIMP_ANALYSIS.md).
+
+Fish inference runs fully locally against Keras/ONNX. Shrimp inference is also
+local after the gated SAM 3 checkpoint and a trained shrimp `best.pt` have been
+installed; the first SAM 3 download requires Hugging Face access. No hosted
+inference API is used.
 
 ---
 
@@ -47,6 +53,13 @@ prediction is too uncertain (low max-confidence or high entropy).
 ## Features
 
 - Camera & gallery upload (Android / iOS) and gallery upload on desktop / web
+- Dedicated Shrimp Counting & Analysis flow with:
+  - SAM 3 `water` mask inspection
+  - hard-gated YOLO11 instance segmentation
+  - mask-based counts and per-instance confidence
+  - original-coordinate pixel length estimates
+  - original, water-mask, gated, annotated, and individual-mask views
+  - optional manual fiducial calibration for millimeters
 - Image preview before prediction
 - Result card with:
   - detected disease name
@@ -331,6 +344,8 @@ proxy (e.g. Nginx) and update `lanIp` in
 | `GET` | `/model/info` | Full `ModelStatus` (paths, num_classes, image_size) |
 | `GET` | `/diseases` | List of disease metadata records |
 | `POST` | `/predict` | Multipart upload `file` → `PredictionResponse` |
+| `GET` | `/api/shrimp/status` | Shrimp model configuration and readiness |
+| `POST` | `/api/shrimp/analyze` | SAM 3 + YOLO11 shrimp analysis |
 | `GET` | `/assistant/health` | Local assistant/index status |
 | `GET` | `/assistant/models` | Available local GGUF models |
 | `GET` / `DELETE` | `/assistant/history/{session_id}` | Persistent chat history |

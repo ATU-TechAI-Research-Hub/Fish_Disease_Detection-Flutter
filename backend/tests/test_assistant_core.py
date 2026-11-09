@@ -149,7 +149,10 @@ def test_qwen_thinking_spans_are_removed_across_stream_chunks():
 
 
 def test_low_memory_mode_keeps_gguf_weights_memory_mapped():
-    pytest.importorskip("llama_cpp")
+    try:
+        __import__("llama_cpp")
+    except (ImportError, OSError, RuntimeError) as exc:
+        pytest.skip(f"llama.cpp native runtime is unavailable in isolation: {exc}")
     from aquaculture_assistant.llm import local_llm
 
     assert local_llm.keep_weights_memory_mapped() is True

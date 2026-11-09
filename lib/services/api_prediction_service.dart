@@ -28,7 +28,7 @@ class ApiPredictionService {
   ///
   /// Set to this PC's Wi-Fi IPv4 so a physical phone on the same network can
   /// reach the backend. Phone and PC must share the same Wi-Fi.
-  static const String lanIp = 'http://192.168.1.74:8000';
+  static const String lanIp = 'http://172.18.135.26:8000';
 
   /// Launch-time override, for example:
   /// `--dart-define=AQUASCAN_BACKEND_URL=http://127.0.0.1:8000`

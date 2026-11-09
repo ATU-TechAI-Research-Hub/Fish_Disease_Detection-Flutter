@@ -1,4 +1,4 @@
-"""FastAPI entrypoint for the AquaScan fish disease detection backend.
+"""FastAPI entrypoint for AquaScan fish and shrimp analysis.
 
 Loading order for the inference model (offline-first):
 
@@ -8,8 +8,9 @@ Loading order for the inference model (offline-first):
   3. ONNX fallback inside `backend/app/ml/fish_disease_classifier.onnx`
      — preserved so the app keeps working even before `model.h5` exists.
 
-No external network connections are made for inference — everything runs
-against local files.
+Fish inference always uses local files. Shrimp inference also runs locally,
+although SAM 3 may be downloaded from Hugging Face on first use when it is not
+already cached.
 """
 
 from __future__ import annotations
@@ -29,6 +30,11 @@ from fastapi.responses import JSONResponse
 
 from app.models import Disease, ModelStatus, PredictionResponse
 from app.services.prediction_service import PredictionService
+from app.services.shrimp import (
+    initialize_shrimp_runtime,
+    router as shrimp_router,
+    shutdown_shrimp_runtime,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -126,19 +132,20 @@ async def lifespan(_app: FastAPI):
         "Inference ready=%s backend=%s device=%s (path=%s)",
         status.ready, status.backend, status.device, status.model_path,
     )
+    initialize_shrimp_runtime(PROJECT_ROOT)
     yield
+    shutdown_shrimp_runtime()
     logger.info("Shutting down AquaScan.")
 
 
 app = FastAPI(
-    title="AquaScan – Fish Disease Detection API",
+    title="AquaScan – Aquaculture AI API",
     description=(
         "Local-first FastAPI backend implementing the freshwater fish disease "
-        "CNN from Tamut et al., Aquac. J. 2025 (doi:10.3390/aquacj5010006). "
-        "Inference runs against a Keras .h5 model (primary) with an ONNX "
-        "fallback. No external API calls are made."
+        "CNN and a separate SAM 3 + YOLO11 instance-segmentation pipeline for "
+        "shrimp counting and geometric length estimation."
     ),
-    version="3.0.0",
+    version="4.0.0",
     lifespan=lifespan,
 )
 
@@ -151,6 +158,7 @@ app.add_middleware(
 )
 if assistant_router is not None:
     app.include_router(assistant_router)
+app.include_router(shrimp_router)
 
 
 @app.middleware("http")
@@ -176,7 +184,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.get("/", tags=["meta"])
 async def root() -> Dict[str, Any]:
     return {
-        "message": "AquaScan Fish Disease Detection API is running.",
+        "message": "AquaScan aquaculture AI API is running.",
         "version": app.version,
         "docs": "/docs",
         "endpoints": [
@@ -184,6 +192,8 @@ async def root() -> Dict[str, Any]:
             "/model/info",
             "/diseases",
             "/predict",
+            "/api/shrimp/status",
+            "/api/shrimp/analyze",
         ]
         + (
             ["/assistant/health", "/assistant/chat/stream"]

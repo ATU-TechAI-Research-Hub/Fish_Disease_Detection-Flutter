@@ -35,7 +35,9 @@ class HowItWorksStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 132,
+      // Leave enough vertical room when the platform or tests use enlarged
+      // text; descriptions such as "Guidance & tips" can wrap to two lines.
+      height: 148,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 2),

@@ -13,6 +13,7 @@ import '../widgets/primary_action_card.dart';
 import '../widgets/section_header.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/wave_clipper.dart';
+import 'shrimp_counting_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -150,6 +151,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   _OfflineHint(),
                 ],
                 const SizedBox(height: 28),
+                const SectionHeader(
+                  title: 'Aquaculture AI tools',
+                  subtitle: 'Independent workflows for fish health and shrimp.',
+                ),
+                const SizedBox(height: 12),
+                const _ShrimpFeatureCard(),
+                const SizedBox(height: 28),
                 const SectionHeaderAccent(title: 'Detectable conditions'),
                 const SizedBox(height: 12),
                 const DiseaseCategoryStrip(),
@@ -224,7 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           Text(
-                            'Freshwater fish disease AI',
+                            'Freshwater aquaculture AI',
                             style: TextStyle(
                               fontSize: 12,
                               color: Color(0xFFB0D9F0),
@@ -268,6 +276,94 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ShrimpFeatureCard extends StatelessWidget {
+  const _ShrimpFeatureCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Open Shrimp Counting and Analysis',
+      child: InkWell(
+        key: const Key('home_shrimp_counting_action'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const ShrimpCountingScreen(),
+            ),
+          );
+        },
+        child: Ink(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.ocean, AppColors.teal],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.teal.withValues(alpha: 0.18),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: const Row(
+            children: [
+              _ShrimpIcon(),
+              SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Shrimp Counting & Analysis',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'AI-powered shrimp detection, counting, and size estimation.',
+                      style: TextStyle(
+                        color: Color(0xFFD6FAF5),
+                        fontSize: 12.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8),
+              Icon(Icons.arrow_forward_rounded, color: Colors.white),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShrimpIcon extends StatelessWidget {
+  const _ShrimpIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: const Icon(Icons.set_meal_rounded, color: Colors.white, size: 28),
     );
   }
 }

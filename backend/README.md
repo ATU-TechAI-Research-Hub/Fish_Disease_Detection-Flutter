@@ -3,6 +3,12 @@
 This is the inference / training backend for AquaScan, implementing the custom
 CNN architecture from Tamut et al., *Aquac. J.* 2025, 5(1), 6 (doi: 10.3390/aquacj5010006).
 
+It also exposes an independent shrimp-analysis pipeline: SAM 3 isolates water,
+a fine-tuned single-class YOLO11x-seg checkpoint returns individual shrimp
+masks, and OpenCV ellipse fitting estimates pixel lengths. See
+[SHRIMP_ANALYSIS.md](SHRIMP_ANALYSIS.md) for model access, checkpoint training,
+configuration, API examples, and limitations.
+
 ## Highlights
 
 | Component | Tech |
@@ -10,6 +16,9 @@ CNN architecture from Tamut et al., *Aquac. J.* 2025, 5(1), 6 (doi: 10.3390/aqua
 | Web server | FastAPI + Uvicorn |
 | ML inference (primary) | TensorFlow / Keras (`.h5`) |
 | ML inference (fallback) | ONNX Runtime (offline-friendly) |
+| Shrimp water isolation | SAM 3 via Hugging Face Transformers |
+| Shrimp instances | Fine-tuned Ultralytics YOLO11x-seg |
+| Shrimp geometry | OpenCV contours + ellipse major axis |
 | Aquaculture assistant | FAISS + MiniLM + llama.cpp (local GGUF) |
 | Training | Keras (`Adam`, `categorical_crossentropy`, `EarlyStopping`, `ReduceLROnPlateau`) |
 | Image input | 150×150 RGB, normalised by /255 (matches the paper) |
@@ -132,6 +141,9 @@ or manually:
 | `GET` | `/model/info` | Detailed model status (backend, path, device, num_classes) |
 | `GET` | `/diseases` | All 7 disease records (cause / symptoms / treatment / prevention) |
 | `POST` | `/predict` | Multipart upload `file` → `PredictionResponse` |
+| `GET` | `/api/shrimp/status` | SAM 3 and shrimp checkpoint configuration |
+| `POST` | `/api/shrimp/analyze` | Water-gated shrimp masks, count, lengths, and result images |
+| `GET` | `/api/shrimp/artifacts/{analysis_id}/{filename}` | Temporary result image |
 | `GET` | `/assistant/health` | Local model and vector-index status |
 | `GET` | `/assistant/models` | Available Qwen, Mistral, and Llama GGUF models |
 | `GET` / `DELETE` | `/assistant/history/{session_id}` | Load or clear persistent chat |

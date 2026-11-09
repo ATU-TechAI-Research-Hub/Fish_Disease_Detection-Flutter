@@ -22,6 +22,16 @@ def _prepare_cuda_runtime() -> None:
     """Expose pip-installed NVIDIA runtime DLLs to Windows."""
     if os.name != "nt" or not hasattr(os, "add_dll_directory"):
         return
+    # The default assistant is CPU-only. Preloading llama.cpp's CUDA DLLs in
+    # that mode can bind an incompatible CUDA runtime before
+    # sentence-transformers imports PyTorch, causing c10_cuda.dll WinError 127.
+    # Only alter the process DLL search path when GPU offload was requested.
+    try:
+        gpu_layers = int(os.getenv("AQUASCAN_ASSISTANT_GPU_LAYERS", "0").strip())
+    except ValueError:
+        gpu_layers = 0
+    if gpu_layers <= 0:
+        return
     for site_packages in site.getsitepackages():
         package_root = Path(site_packages)
         nvidia_root = package_root / "nvidia"

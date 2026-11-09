@@ -89,18 +89,28 @@ class ScanFlow {
       return;
     }
 
+    final path = await captureImage(context);
+    if (!context.mounted || path == null) return;
+    await _openPreview(context, path);
+  }
+
+  /// Capture an image without choosing what analysis flow receives it.
+  ///
+  /// Fish diagnosis and shrimp analysis both use this shared permission and
+  /// picker implementation, then route the selected path independently.
+  static Future<String?> captureImage(BuildContext context) async {
     if (!cameraSupported) {
       showInfo(
         context,
         'Camera capture is only available on Android and iOS. '
         'Please use Gallery on this device.',
       );
-      return;
+      return null;
     }
 
     try {
       final hasPermission = await _ensureCameraPermission(context);
-      if (!hasPermission || !context.mounted) return;
+      if (!hasPermission || !context.mounted) return null;
 
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
@@ -108,12 +118,12 @@ class ScanFlow {
         maxWidth: 1500,
         preferredCameraDevice: CameraDevice.rear,
       );
-      if (!context.mounted || photo == null) return;
-
-      await _openPreview(context, photo.path);
+      if (!context.mounted || photo == null) return null;
+      return photo.path;
     } catch (e) {
-      if (!context.mounted) return;
+      if (!context.mounted) return null;
       _snack(context, 'Could not open camera: $e', AppColors.coral);
+      return null;
     }
   }
 
@@ -123,18 +133,25 @@ class ScanFlow {
       return;
     }
 
+    final path = await selectGalleryImage(context);
+    if (!context.mounted || path == null) return;
+    await _openPreview(context, path);
+  }
+
+  /// Pick a gallery image for either fish or shrimp analysis.
+  static Future<String?> selectGalleryImage(BuildContext context) async {
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
         imageQuality: 90,
         maxWidth: 1500,
       );
-      if (!context.mounted || image == null) return;
-
-      await _openPreview(context, image.path);
+      if (!context.mounted || image == null) return null;
+      return image.path;
     } catch (e) {
-      if (!context.mounted) return;
+      if (!context.mounted) return null;
       _snack(context, 'Could not open gallery: $e', AppColors.coral);
+      return null;
     }
   }
 

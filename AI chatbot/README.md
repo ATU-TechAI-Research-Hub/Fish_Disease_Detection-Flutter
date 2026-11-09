@@ -9,7 +9,11 @@ The three existing GGUF files are retained as local model choices:
 
 - `models/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf`
 - `models/mistral-7b-instruct-v0.2.Q4_K_M.gguf`
-- `models/qwen3_8b_gguf/Qwen3-8B-Q4_K_M.gguf`
+- `models/qwen3_1_7b_gguf/Qwen3-1.7B-Q8_0.gguf` (default, faster CPU model)
+
+The previous Qwen3 8B file can still be selected by setting
+`AQUASCAN_QWEN_MODEL`, but it may exceed the 180-second local generation
+limit on CPU-only Windows hosts.
 
 Model files, generated vectors, and SQLite history are Git-ignored.
 

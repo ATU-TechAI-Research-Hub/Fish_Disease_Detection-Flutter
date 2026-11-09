@@ -1,5 +1,5 @@
 name: aquaculture
-description: AquaScan — AI-powered freshwater fish disease detection (Flutter + FastAPI).
+description: AquaScan — AI-powered fish disease and shrimp analysis (Flutter + FastAPI).
 publish_to: "none"
 
 version: 1.0.0+1

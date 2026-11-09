@@ -85,11 +85,13 @@ def _model_specs() -> dict[str, ModelSpec]:
         ),
         "qwen": ModelSpec(
             key="qwen",
-            display_name="Qwen3 8B",
+            display_name="Qwen3 1.7B (Fast Local)",
             path=_absolute_path(
                 os.getenv(
                     "AQUASCAN_QWEN_MODEL",
-                    model_root / "qwen3_8b_gguf" / "Qwen3-8B-Q4_K_M.gguf",
+                    model_root
+                    / "qwen3_1_7b_gguf"
+                    / "Qwen3-1.7B-Q8_0.gguf",
                 )
             ),
             stop_tokens=("<|im_end|>", "<|endoftext|>"),

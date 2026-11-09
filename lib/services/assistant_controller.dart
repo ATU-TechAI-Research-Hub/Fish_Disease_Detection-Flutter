@@ -26,7 +26,7 @@ class AssistantController extends ChangeNotifier {
   List<AssistantModelOption> _models = const [
     AssistantModelOption(
       key: 'qwen',
-      displayName: 'Qwen3 8B',
+      displayName: 'Qwen3 1.7B (Fast Local)',
       available: true,
       active: false,
     ),
