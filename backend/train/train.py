@@ -1,4 +1,4 @@
-"""Build, train and save the paper-exact Keras CNN as `model.h5`.
+"""Train and save a fish-disease classifier as `model.h5`.
 
 Architecture, hyperparameters, and preprocessing match:
   Tamut J., Mangang Y.A., Chingakham C. (2025).
@@ -16,7 +16,8 @@ Key paper details we reproduce:
   - Callbacks: EarlyStopping + ReduceLROnPlateau
 
 Usage:
-    python -m train.train                       # use defaults
+    python -m train.train                       # pretrained MobileNetV2
+    python -m train.train --architecture paper_cnn
     python -m train.train --epochs 50 --batch-size 32
     python -m train.train --output ../model/model.h5
 """
@@ -59,6 +60,15 @@ class TrainingConfig:
     use_adamw: bool = True
     strong_augmentation: bool = True
     save_best_only: bool = True
+    # Research-backed transfer-learning preset. The input/output contract stays
+    # 150x150 RGB /255 → seven probabilities, so deployment is unchanged.
+    architecture: str = "mobilenet_v2"
+    imagenet_weights: bool = True
+    warmup_epochs: int = 8
+    fine_tune_layers: int = 30
+    fine_tune_learning_rate: float = 1e-5
+    class_weight_strategy: str = "effective_number"
+    effective_number_beta: float = 0.999
 
 
 def _set_seeds(seed: int) -> None:
@@ -67,6 +77,12 @@ def _set_seeds(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     tf.random.set_seed(seed)
+    try:
+        tf.config.experimental.enable_op_determinism()
+    except (AttributeError, RuntimeError):
+        # Older TensorFlow versions may not expose this API; seeded execution
+        # is still preferable to silently changing the experiment seed.
+        pass
 
 
 def build_paper_cnn(
@@ -120,6 +136,57 @@ def build_paper_cnn(
     return Model(inputs=inputs, outputs=outputs, name="paper_cnn_keras")
 
 
+def build_mobilenet_v2(
+    num_classes: int,
+    image_size: int = 150,
+    l2_weight_decay: float = 1e-4,
+    imagenet_weights: bool = True,
+) -> tuple["tf.keras.Model", "tf.keras.Model"]:
+    """Build a compact ImageNet-pretrained transfer-learning classifier.
+
+    Recent fish-disease studies consistently find that pretrained feature
+    extractors generalise better than small CNNs on limited aquaculture
+    datasets. MobileNetV2 is used here because it is accurate, lightweight and
+    easy to deploy. The backend still supplies [0, 1] RGB tensors; the Lambda
+    layer performs MobileNetV2's required [-1, 1] conversion inside the model.
+    """
+    from tensorflow.keras import Input, Model, layers, regularizers
+    from tensorflow.keras.applications import MobileNetV2
+
+    inputs = Input(shape=(image_size, image_size, 3), name="image")
+    normalized = layers.Rescaling(
+        scale=2.0, offset=-1.0, name="mobilenet_preprocess"
+    )(inputs)
+    backbone = MobileNetV2(
+        input_shape=(image_size, image_size, 3),
+        include_top=False,
+        weights="imagenet" if imagenet_weights else None,
+        input_tensor=normalized,
+    )
+    backbone.trainable = False
+
+    reg = regularizers.l2(l2_weight_decay) if l2_weight_decay > 0 else None
+    x = backbone.output
+    x = layers.GlobalAveragePooling2D(name="global_average_pool")(x)
+    x = layers.BatchNormalization(name="head_bn")(x)
+    x = layers.Dropout(0.35, name="head_dropout")(x)
+    x = layers.Dense(
+        256,
+        activation="relu",
+        kernel_regularizer=reg,
+        name="head_dense",
+    )(x)
+    x = layers.Dropout(0.30, name="classifier_dropout")(x)
+    outputs = layers.Dense(
+        num_classes,
+        activation="softmax",
+        kernel_regularizer=reg,
+        name="output",
+    )(x)
+    model = Model(inputs=inputs, outputs=outputs, name="mobilenet_v2_fish_disease")
+    return model, backbone
+
+
 def _make_generators(
     dataset_root: Path,
     folder_names: List[str],
@@ -129,73 +196,44 @@ def _make_generators(
     seed: int,
     use_augmentation: bool,
     strong_augmentation: bool = False,
-) -> tuple["ImageDataGenerator.flow_from_directory", "ImageDataGenerator.flow_from_directory"]:
-    from tensorflow.keras.preprocessing.image import ImageDataGenerator
+) -> tuple[object, object]:
+    from train.data import (
+        build_augmenter,
+        discover_training_split,
+        make_image_sequence,
+    )
 
     train_dir = dataset_root / "Train"
-    if not train_dir.exists():
-        raise FileNotFoundError(
-            f"Training folder not found: {train_dir}. "
-            "Place the Kaggle dataset under "
-            "`Freshwater_Fish_Disease_Aquaculture_in_south_asia/Train/...`"
-        )
-
-    augment_kwargs: Dict[str, object] = {}
-    if use_augmentation:
-        if strong_augmentation:
-            augment_kwargs = dict(
-                rotation_range=30,
-                width_shift_range=0.15,
-                height_shift_range=0.15,
-                horizontal_flip=True,
-                vertical_flip=False,
-                zoom_range=0.2,
-                brightness_range=(0.8, 1.2),
-                shear_range=0.1,
-                channel_shift_range=20.0,
-                fill_mode="reflect",
-            )
-        else:
-            augment_kwargs = dict(
-                rotation_range=20,
-                width_shift_range=0.1,
-                height_shift_range=0.1,
-                horizontal_flip=True,
-                zoom_range=0.1,
-                brightness_range=(0.9, 1.1),
-            )
-
-    train_datagen = ImageDataGenerator(
-        rescale=1.0 / 255.0,
+    train_paths, train_labels, val_paths, val_labels = discover_training_split(
+        train_dir=train_dir,
+        folder_names=folder_names,
         validation_split=validation_split,
-        **augment_kwargs,
+        seed=seed,
     )
-    eval_datagen = ImageDataGenerator(
-        rescale=1.0 / 255.0,
-        validation_split=validation_split,
+    augmenter = (
+        build_augmenter(strong=strong_augmentation, seed=seed)
+        if use_augmentation
+        else None
     )
-
-    train_gen = train_datagen.flow_from_directory(
-        str(train_dir),
-        target_size=(image_size, image_size),
+    train_gen = make_image_sequence(
+        file_paths=train_paths,
+        labels=train_labels,
+        num_classes=len(folder_names),
+        image_size=image_size,
         batch_size=batch_size,
-        color_mode="rgb",
-        class_mode="categorical",
-        classes=folder_names,
-        subset="training",
         shuffle=True,
         seed=seed,
+        augmenter=augmenter,
     )
-    val_gen = eval_datagen.flow_from_directory(
-        str(train_dir),
-        target_size=(image_size, image_size),
+    val_gen = make_image_sequence(
+        file_paths=val_paths,
+        labels=val_labels,
+        num_classes=len(folder_names),
+        image_size=image_size,
         batch_size=batch_size,
-        color_mode="rgb",
-        class_mode="categorical",
-        classes=folder_names,
-        subset="validation",
         shuffle=False,
-        seed=seed,
+        seed=seed + 1000,
+        augmenter=None,
     )
     return train_gen, val_gen
 
@@ -203,14 +241,40 @@ def _make_generators(
 def _compute_class_weights(
     train_gen,
     num_classes: int,
+    strategy: str = "effective_number",
+    beta: float = 0.999,
 ) -> Dict[int, float]:
-    """Inverse-frequency weights, matching what the paper does for imbalance."""
+    """Compute class weights without allowing a majority class to dominate.
+
+    ``effective_number`` follows Cui et al. (CVPR 2019). It is less aggressive
+    than raw inverse frequency when a minority class has only a few samples,
+    which usually makes optimisation more stable on small imbalanced datasets.
+    """
     counts = np.bincount(train_gen.classes, minlength=num_classes)
     total = float(counts.sum())
-    weights: Dict[int, float] = {}
-    for i in range(num_classes):
-        weights[i] = float(total / (num_classes * max(int(counts[i]), 1)))
-    return weights
+    if strategy == "none":
+        return {index: 1.0 for index in range(num_classes)}
+    if strategy == "inverse_frequency":
+        return {
+            index: float(total / (num_classes * max(int(count), 1)))
+            for index, count in enumerate(counts)
+        }
+    if strategy != "effective_number":
+        raise ValueError(
+            "class_weight_strategy must be one of: "
+            "effective_number, inverse_frequency, none."
+        )
+    if not 0.0 <= beta < 1.0:
+        raise ValueError("effective_number_beta must be in [0, 1).")
+
+    safe_counts = np.maximum(counts.astype(np.float64), 1.0)
+    effective_weights = (1.0 - beta) / (1.0 - np.power(beta, safe_counts))
+    # Preserve the average loss scale so learning-rate behaviour stays stable.
+    effective_weights /= np.mean(effective_weights)
+    return {
+        index: float(weight)
+        for index, weight in enumerate(effective_weights)
+    }
 
 
 def train(
@@ -255,93 +319,217 @@ def train(
         f"{num_classes} classes."
     )
 
-    model = build_paper_cnn(
-        num_classes=num_classes,
-        image_size=config.image_size,
-        l2_weight_decay=config.l2_weight_decay,
-    )
+    # AdamW already applies decoupled weight decay. Applying kernel L2 at the
+    # same time regularizes every update twice and can cause underfitting.
+    kernel_l2 = 0.0 if config.use_adamw else config.l2_weight_decay
+    backbone = None
+    if config.architecture == "paper_cnn":
+        model = build_paper_cnn(
+            num_classes=num_classes,
+            image_size=config.image_size,
+            l2_weight_decay=kernel_l2,
+        )
+    elif config.architecture == "mobilenet_v2":
+        model, backbone = build_mobilenet_v2(
+            num_classes=num_classes,
+            image_size=config.image_size,
+            l2_weight_decay=kernel_l2,
+            imagenet_weights=config.imagenet_weights,
+        )
+    else:
+        raise ValueError(
+            "architecture must be either 'mobilenet_v2' or 'paper_cnn'."
+        )
 
-    # Prefer AdamW (decoupled weight decay) when available — better
-    # generalisation than vanilla Adam with comparable wall-clock cost.
-    optimizer = None
-    if config.use_adamw:
-        try:
-            from tensorflow.keras.optimizers import AdamW  # TF >= 2.11
-            optimizer = AdamW(
-                learning_rate=config.learning_rate,
-                weight_decay=max(config.l2_weight_decay, 1e-5),
-            )
-            print(
-                f"Using AdamW(lr={config.learning_rate}, "
-                f"weight_decay={max(config.l2_weight_decay, 1e-5)})"
-            )
-        except Exception as exc:  # pragma: no cover - fallback path
-            print(f"AdamW unavailable ({exc}); falling back to Adam.")
-    if optimizer is None:
-        optimizer = Adam(learning_rate=config.learning_rate)
-        print(f"Using Adam(lr={config.learning_rate})")
+    def compile_model(learning_rate: float) -> None:
+        """Compile (or recompile after unfreezing) with identical metrics."""
+        optimizer = None
+        if config.use_adamw:
+            try:
+                from tensorflow.keras.optimizers import AdamW  # TF >= 2.11
+                optimizer = AdamW(
+                    learning_rate=learning_rate,
+                    weight_decay=max(config.l2_weight_decay, 1e-5),
+                )
+                print(
+                    f"Using AdamW(lr={learning_rate}, "
+                    f"weight_decay={max(config.l2_weight_decay, 1e-5)})"
+                )
+            except Exception as exc:  # pragma: no cover - fallback path
+                print(f"AdamW unavailable ({exc}); falling back to Adam.")
+        if optimizer is None:
+            optimizer = Adam(learning_rate=learning_rate)
+            print(f"Using Adam(lr={learning_rate})")
 
-    model.compile(
-        optimizer=optimizer,
-        loss=CategoricalCrossentropy(label_smoothing=config.label_smoothing),
-        metrics=["accuracy"],
-    )
+        model.compile(
+            optimizer=optimizer,
+            loss=CategoricalCrossentropy(
+                label_smoothing=config.label_smoothing
+            ),
+            metrics=[
+                tf.keras.metrics.CategoricalAccuracy(name="accuracy"),
+                tf.keras.metrics.TopKCategoricalAccuracy(
+                    k=min(3, num_classes), name="top3_accuracy"
+                ),
+            ],
+        )
+
+    compile_model(config.learning_rate)
     model.summary(print_fn=lambda line: print(line))
 
     output_h5.parent.mkdir(parents=True, exist_ok=True)
     outputs_dir.mkdir(parents=True, exist_ok=True)
+    dataset_root_resolved = dataset_root.resolve()
+
+    def relative_dataset_path(raw_path: str) -> str:
+        path = Path(raw_path).resolve()
+        try:
+            return str(path.relative_to(dataset_root_resolved))
+        except ValueError:
+            return str(path)
+
+    split_manifest = {
+        "seed": config.seed,
+        "validation_split": config.validation_split,
+        "train_files": [
+            relative_dataset_path(path) for path in train_gen.filepaths
+        ],
+        "validation_files": [
+            relative_dataset_path(path) for path in val_gen.filepaths
+        ],
+    }
+    split_file = outputs_dir / "validation_split.json"
+    split_file.write_text(
+        json.dumps(split_manifest, indent=2), encoding="utf-8"
+    )
 
     best_h5 = outputs_dir / "best_model.h5"
+    fine_tuned_h5 = outputs_dir / "best_model_fine_tuned.h5"
 
-    callbacks = [
-        EarlyStopping(
-            monitor="val_accuracy",
-            mode="max",
-            patience=config.patience_early_stop,
-            restore_best_weights=True,
-            verbose=1,
-        ),
-        ReduceLROnPlateau(
-            monitor="val_loss",
-            factor=0.5,
-            patience=config.patience_reduce_lr,
-            min_lr=1e-6,
-            verbose=1,
-        ),
-        ModelCheckpoint(
-            filepath=str(best_h5),
-            monitor="val_accuracy",
-            mode="max",
-            save_best_only=True,
-            save_weights_only=False,
-            verbose=0,
-        ),
-    ]
+    def make_callbacks(checkpoint: Path, minimum_lr: float):
+        # Validation loss is a better overfitting/calibration signal than raw
+        # accuracy, especially with class weighting and label smoothing.
+        return [
+            EarlyStopping(
+                monitor="val_loss",
+                mode="min",
+                patience=config.patience_early_stop,
+                restore_best_weights=True,
+                verbose=1,
+            ),
+            ReduceLROnPlateau(
+                monitor="val_loss",
+                mode="min",
+                factor=0.5,
+                patience=config.patience_reduce_lr,
+                min_lr=minimum_lr,
+                verbose=1,
+            ),
+            ModelCheckpoint(
+                filepath=str(checkpoint),
+                monitor="val_loss",
+                mode="min",
+                save_best_only=True,
+                save_weights_only=False,
+                verbose=0,
+            ),
+        ]
 
-    class_weights = _compute_class_weights(train_gen, num_classes)
-    print(f"Class weights (inverse-frequency): {class_weights}")
+    class_weights = _compute_class_weights(
+        train_gen,
+        num_classes,
+        strategy=config.class_weight_strategy,
+        beta=config.effective_number_beta,
+    )
+    print(
+        f"Class weights ({config.class_weight_strategy}): {class_weights}"
+    )
 
+    first_phase_epochs = (
+        min(config.warmup_epochs, config.epochs)
+        if backbone is not None
+        else config.epochs
+    )
+    print(
+        f"\nPhase 1: training classifier head for {first_phase_epochs} epoch(s)."
+        if backbone is not None
+        else f"\nTraining paper CNN for up to {first_phase_epochs} epoch(s)."
+    )
     history = model.fit(
         train_gen,
-        epochs=config.epochs,
+        epochs=first_phase_epochs,
         validation_data=val_gen,
-        callbacks=callbacks,
+        callbacks=make_callbacks(best_h5, minimum_lr=1e-6),
         class_weight=class_weights,
         verbose=1,
     )
+    history_dict: Dict[str, List[float]] = {
+        key: [float(v) for v in values]
+        for key, values in history.history.items()
+    }
+    phase1_metrics = model.evaluate(val_gen, verbose=0, return_dict=True)
 
-    # `restore_best_weights=True` means `model` already holds the best
-    # checkpoint, so saving it again is equivalent to saving `best_h5`.
+    remaining_epochs = max(config.epochs - first_phase_epochs, 0)
+    if (
+        backbone is not None
+        and remaining_epochs > 0
+        and config.fine_tune_layers > 0
+    ):
+        print(
+            f"\nPhase 2: fine-tuning the final "
+            f"{min(config.fine_tune_layers, len(backbone.layers))} backbone "
+            f"layers for up to {remaining_epochs} epoch(s) at "
+            f"lr={config.fine_tune_learning_rate}."
+        )
+        backbone.trainable = True
+        freeze_until = max(len(backbone.layers) - config.fine_tune_layers, 0)
+        for index, layer in enumerate(backbone.layers):
+            # Keep BatchNorm statistics frozen on this small dataset. Updating
+            # them during fine-tuning commonly damages pretrained features.
+            layer.trainable = (
+                index >= freeze_until
+                and not isinstance(layer, tf.keras.layers.BatchNormalization)
+            )
+        compile_model(config.fine_tune_learning_rate)
+        fine_history = model.fit(
+            train_gen,
+            epochs=remaining_epochs,
+            validation_data=val_gen,
+            callbacks=make_callbacks(fine_tuned_h5, minimum_lr=1e-7),
+            class_weight=class_weights,
+            verbose=1,
+        )
+        for key, values in fine_history.history.items():
+            history_dict.setdefault(key, []).extend(float(v) for v in values)
+
+        fine_metrics = model.evaluate(val_gen, verbose=0, return_dict=True)
+        if float(fine_metrics["loss"]) > float(phase1_metrics["loss"]):
+            print(
+                "Fine-tuning did not improve validation loss; restoring the "
+                "frozen-backbone checkpoint."
+            )
+            model = tf.keras.models.load_model(str(best_h5), compile=False)
+        else:
+            phase1_metrics = fine_metrics
+
     model.save(str(output_h5))
     print(f"\nSaved Keras model to: {output_h5}")
 
-    history_dict: Dict[str, List[float]] = {
-        key: [float(v) for v in values] for key, values in history.history.items()
-    }
     history_file = outputs_dir / "training_history.json"
     history_file.write_text(json.dumps(history_dict, indent=2), encoding="utf-8")
 
-    val_loss, val_acc = model.evaluate(val_gen, verbose=0)
+    # Compile=False restoration above means we evaluate from predictions rather
+    # than depending on serialized optimizer state.
+    val_probabilities = model.predict(val_gen, verbose=0)
+    val_predictions = np.argmax(val_probabilities, axis=1)
+    val_acc = float(np.mean(val_predictions == val_gen.classes))
+    clipped = np.clip(val_probabilities, 1e-7, 1.0)
+    val_targets = tf.keras.utils.to_categorical(
+        val_gen.classes, num_classes=num_classes
+    )
+    val_loss = float(
+        np.mean(-np.sum(val_targets * np.log(clipped), axis=1))
+    )
     summary: Dict[str, object] = {
         "epochs_completed": len(history_dict.get("loss", [])),
         "best_val_accuracy": float(max(history_dict.get("val_accuracy", [0.0]) or [0.0])),
@@ -349,11 +537,14 @@ def train(
         "final_val_loss": float(val_loss),
         "num_classes": num_classes,
         "image_size": config.image_size,
+        "architecture": config.architecture,
+        "kernel_l2_applied": kernel_l2,
         "model_file": str(output_h5),
         "labels_file": str(labels_file),
         "config": asdict(config),
         "class_weights": {str(k): v for k, v in class_weights.items()},
         "history_file": str(history_file),
+        "validation_split_file": str(split_file),
     }
     (outputs_dir / "training_summary.json").write_text(
         json.dumps(summary, indent=2), encoding="utf-8"
@@ -366,7 +557,10 @@ def train(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Train the paper-exact Keras CNN and save model.h5.",
+        description=(
+            "Train an ImageNet-pretrained MobileNetV2 (recommended) or the "
+            "paper-exact CNN and save model.h5."
+        ),
     )
     parser.add_argument("--dataset-root", type=Path, default=DEFAULT_DATASET_ROOT)
     parser.add_argument("--labels-file", type=Path, default=DEFAULT_LABELS_FILE)
@@ -388,6 +582,45 @@ def parse_args() -> argparse.Namespace:
                         help="Use light augmentation instead of the strong preset.")
     parser.add_argument("--no-adamw", action="store_true",
                         help="Use vanilla Adam instead of AdamW.")
+    parser.add_argument(
+        "--architecture",
+        choices=("mobilenet_v2", "paper_cnn"),
+        default="mobilenet_v2",
+        help="Model family. MobileNetV2 transfer learning is recommended.",
+    )
+    parser.add_argument(
+        "--no-imagenet-weights",
+        action="store_true",
+        help="Initialise MobileNetV2 randomly (normally reduces accuracy).",
+    )
+    parser.add_argument(
+        "--warmup-epochs",
+        type=int,
+        default=8,
+        help="Epochs with the pretrained backbone frozen.",
+    )
+    parser.add_argument(
+        "--fine-tune-layers",
+        type=int,
+        default=30,
+        help="Number of final MobileNetV2 layers to unfreeze.",
+    )
+    parser.add_argument(
+        "--fine-tune-learning-rate",
+        type=float,
+        default=1e-5,
+    )
+    parser.add_argument(
+        "--class-weight-strategy",
+        choices=("effective_number", "inverse_frequency", "none"),
+        default="effective_number",
+    )
+    parser.add_argument(
+        "--effective-number-beta",
+        type=float,
+        default=0.999,
+        help="Cui et al. effective-number beta; must be in [0, 1).",
+    )
     return parser.parse_args()
 
 
@@ -407,6 +640,13 @@ def main() -> None:
         label_smoothing=args.label_smoothing,
         l2_weight_decay=args.l2,
         use_adamw=not args.no_adamw,
+        architecture=args.architecture,
+        imagenet_weights=not args.no_imagenet_weights,
+        warmup_epochs=args.warmup_epochs,
+        fine_tune_layers=args.fine_tune_layers,
+        fine_tune_learning_rate=args.fine_tune_learning_rate,
+        class_weight_strategy=args.class_weight_strategy,
+        effective_number_beta=args.effective_number_beta,
     )
     train(
         dataset_root=args.dataset_root,

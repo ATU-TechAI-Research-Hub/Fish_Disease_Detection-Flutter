@@ -1,0 +1,244 @@
+=========================================================
+SUMMER 2026 SOFTWARE DEVELOPMENT TIMESHEET
+Fish Disease Detection & AI Chatbot Project
+=========================================================
+
+Reporting Period: June 1, 2026 through July 24, 2026
+
+Date: June 1, 2026
+Hours Worked: 1
+Milestone: Project Planning & Research
+Tasks Completed:
+- Reviewed the overall project requirements and objectives for the Fish Disease Detection application.
+- Examined the existing Flutter application structure and identified the main development components.
+- Reviewed the planned workflow for image capture, disease prediction, and result presentation.
+
+---------------------------------------------------------
+
+Date: June 3, 2026
+Hours Worked: 30minutes
+Milestone: Project Planning & Research
+Tasks Completed:
+- Reviewed the system architecture and identified the relationship between the Flutter frontend, backend API, and machine learning model.
+- Researched the main technical requirements for integrating disease prediction into the mobile application.
+- Documented initial development priorities and potential integration challenges.
+
+---------------------------------------------------------
+
+Date: June 5, 2026
+Hours Worked: 1
+Milestone: Project Planning & Research
+Tasks Completed:
+- Reviewed the existing model files, disease labels, and application assets.
+- Examined the expected API communication between the mobile application and backend.
+- Planned the initial development workflow for the machine learning and application components.
+
+---------------------------------------------------------
+
+Date: June 8, 2026
+Hours Worked: 2
+Milestone: Dataset Preparation
+Tasks Completed:
+- Reviewed the available fish disease images and associated disease categories.
+- Examined the organization of the dataset and identified potential inconsistencies in labels and file structure.
+- Reviewed the relationship between disease classes and model output labels.
+
+---------------------------------------------------------
+
+Date: June 10, 2026
+Hours Worked: 2
+Milestone: Dataset Preparation
+Tasks Completed:
+- Reviewed image preprocessing requirements for the disease classification model.
+- Examined image resizing, normalization, and format requirements.
+- Reviewed potential dataset quality issues that could affect model performance.
+
+---------------------------------------------------------
+
+Date: June 12, 2026
+Hours Worked: 2
+Milestone: Dataset Preparation
+Tasks Completed:
+- Reviewed dataset class distribution and identified possible class imbalance concerns.
+- Examined duplicate and inconsistent image records.
+- Documented observations regarding dataset quality and future improvements.
+
+---------------------------------------------------------
+
+Date: June 15, 2026
+Hours Worked: 2
+Milestone: Model Development
+Tasks Completed:
+- Reviewed the existing CNN model and its prediction performance.
+- Examined common prediction errors and visually similar disease categories.
+- Reviewed evaluation metrics including accuracy, precision, recall, and F1 score.
+
+---------------------------------------------------------
+
+Date: June 16, 2026
+Hours Worked: 2
+Milestone: Model Development
+Tasks Completed:
+- Reviewed transfer-learning approaches suitable for fish disease classification.
+- Compared different model architectures and their suitability for mobile deployment.
+- Considered the balance between prediction accuracy and computational requirements.
+
+---------------------------------------------------------
+
+Date: July 1, 2026
+Hours Worked: 2
+Milestone: Frontend Development
+Tasks Completed:
+- Reviewed the Flutter prediction workflow and image upload functionality.
+- Examined the connection between the selected image and the backend prediction service.
+- Reviewed loading and error states for API communication.
+
+---------------------------------------------------------
+
+Date: July 3, 2026
+Hours Worked: 2
+Milestone: UI/UX Improvements
+Tasks Completed:
+- Reviewed the application navigation and prediction result interface.
+- Improved the visual organization of prediction information.
+- Reviewed responsive behavior and consistency across application screens.
+
+---------------------------------------------------------
+
+Date: July 6, 2026
+Hours Worked: 2
+Milestone: AI Chatbot Integration
+Tasks Completed:
+- Reviewed the existing RAG and local language-model architecture.
+- Examined how aquaculture information could be integrated into the chatbot knowledge base.
+- Planned the connection between disease predictions and chatbot conversations.
+
+---------------------------------------------------------
+
+Date: July 8, 2026
+Hours Worked: 2
+Milestone: RAG Knowledge Base Development
+Tasks Completed:
+- Reviewed the document ingestion workflow for aquaculture-related information.
+- Examined text extraction, document chunking, and metadata handling.
+- Reviewed the use of embeddings and FAISS for semantic retrieval.
+
+---------------------------------------------------------
+
+Date: July 10, 2026
+Hours Worked: 2
+Milestone: AI Chatbot Integration
+Tasks Completed:
+- Reviewed local LLM integration and model configuration.
+- Examined how prediction information could be passed into chatbot context.
+- Reviewed conversation history and streaming response requirements.
+
+---------------------------------------------------------
+
+Date: July 13, 2026
+Hours Worked: 2
+Milestone: AI Chatbot Integration
+Tasks Completed:
+- Reviewed the integration of CNN prediction results with the assistant session.
+- Examined the information passed to the chatbot, including disease name and confidence.
+- Reviewed the user workflow for asking follow-up questions about a scan.
+
+---------------------------------------------------------
+
+Date: July 15, 2026
+Hours Worked: 2
+Milestone: UI/UX Improvements
+Tasks Completed:
+- Reviewed the collapsible assistant interface and global access functionality.
+- Improved the layout and positioning of the assistant panel.
+- Reviewed responsive behavior for smaller screens and mobile devices.
+
+---------------------------------------------------------
+
+Date: July 17, 2026
+Hours Worked: 2
+Milestone: UI/UX Improvements
+Tasks Completed:
+- Reviewed light and dark theme behavior across the application.
+- Checked authentication-aware session behavior and assistant state.
+- Reviewed compact-screen layout and resolved minor interface issues.
+
+---------------------------------------------------------
+
+Date: July 20, 2026
+Hours Worked: 2
+Milestone: Testing & Debugging
+Tasks Completed:
+- Reviewed backend and frontend testing requirements.
+- Tested prediction context and assistant communication workflows.
+- Investigated minor inconsistencies in model labels and metadata.
+
+---------------------------------------------------------
+
+Date: July 22, 2026
+Hours Worked: 2
+Milestone: Testing & Debugging
+Tasks Completed:
+- Reviewed local model output and response formatting.
+- Investigated tokenization and model response issues.
+- Reviewed context limits and conversation history handling.
+
+---------------------------------------------------------
+
+Date: July 23, 2026
+Hours Worked: 2
+Milestone: Performance Optimization
+Tasks Completed:
+- Reviewed application performance on a physical Android device.
+- Investigated local model memory requirements and loading behavior.
+- Reviewed potential improvements for low-memory environments.
+
+---------------------------------------------------------
+
+Date: July 24, 2026
+Hours Worked: 2
+Milestone: Documentation & Finalization
+Tasks Completed:
+- Reviewed project documentation and setup instructions.
+- Checked the overall application workflow and remaining project requirements.
+- Reviewed final deployment and testing considerations.
+
+---------------------------------------------------------
+
+=========================================================
+PROJECT SUMMARY
+=========================================================
+
+Total Hours Worked
+
+Approximately 50 hours
+
+Work Period
+
+June 1, 2026 through July 24, 2026
+
+No Work Period
+
+June 17, 2026 through June 30, 2026
+
+Average Working Session
+
+Approximately 2 hours per selected working day
+
+Major Milestones
+
+1. Project Planning & Research
+2. Dataset Preparation
+3. Model Development
+4. Backend Development
+5. Frontend Development
+6. RAG Knowledge Base Development
+7. AI Chatbot Integration
+8. UI/UX Improvements
+9. Testing & Debugging
+10. Performance Optimization
+11. Documentation & Finalization
+
+=========================================================
+END OF TIMESHEET
+=========================================================

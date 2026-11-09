@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 
 import '../models/prediction_result_model.dart';
 import '../services/api_prediction_service.dart';
+import '../services/assistant_controller.dart';
 import '../services/scan_history_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/bubble_background.dart';
@@ -45,6 +47,12 @@ class _ResultScreenState extends State<ResultScreen>
 
     if (widget.existingResult != null) {
       _predictionFuture = Future.value(widget.existingResult!);
+      unawaited(
+        AssistantController.instance.attachPrediction(
+          widget.existingResult!,
+          publishToBackend: true,
+        ),
+      );
       _fadeController.forward();
     } else {
       _predictionFuture = _predict();
@@ -52,8 +60,11 @@ class _ResultScreenState extends State<ResultScreen>
   }
 
   Future<PredictionResultModel> _predict() async {
-    final result =
-        await _apiService.predictDiseaseFromImage(widget.imagePath);
+    final result = await _apiService.predictDiseaseFromImage(
+      widget.imagePath,
+      assistantSessionId: AssistantController.instance.sessionId,
+    );
+    await AssistantController.instance.attachPrediction(result);
     ScanHistoryService.instance.add(result, widget.imagePath);
     _fadeController.forward();
     return result;
@@ -75,7 +86,6 @@ class _ResultScreenState extends State<ResultScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
       body: FutureBuilder<PredictionResultModel>(
         future: _predictionFuture,
         builder: (context, snapshot) {
@@ -120,8 +130,7 @@ class _LoadingView extends StatelessWidget {
           child: Column(
             children: [
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Row(
                   children: [
                     IconButton(
@@ -406,6 +415,8 @@ class _ResultBody extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildAskAssistant(context),
+                const SizedBox(height: 14),
                 if (isUnknown) ...[
                   _buildNoFishCard(context),
                   if (result.warning != null) ...[
@@ -505,16 +516,39 @@ class _ResultBody extends StatelessWidget {
     );
   }
 
+  Widget _buildAskAssistant(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: () {
+          unawaited(
+            AssistantController.instance.attachPrediction(
+              result,
+              publishToBackend: true,
+            ),
+          );
+          AssistantController.instance.open();
+        },
+        icon: const Icon(Icons.auto_awesome_rounded),
+        label: const Text('Ask AI about this result'),
+        style: FilledButton.styleFrom(
+          backgroundColor:
+              context.isDarkMode ? AppColors.seaBlue : AppColors.ocean,
+        ),
+      ),
+    );
+  }
+
   Widget _buildNoFishCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.surfaceCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: context.subtleBorder),
         boxShadow: [
           BoxShadow(
-            color: AppColors.deepOcean.withValues(alpha: 0.05),
+            color: context.cardShadow,
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -526,7 +560,7 @@ class _ResultBody extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
+              color: context.subtleBorder,
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Icon(
@@ -541,7 +575,7 @@ class _ResultBody extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
@@ -565,11 +599,11 @@ class _ResultBody extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.surfaceCard,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.deepOcean.withValues(alpha: 0.05),
+            color: context.cardShadow,
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -579,6 +613,7 @@ class _ResultBody extends StatelessWidget {
         children: [
           ConfidenceRing(
             confidence: result.confidence,
+            tier: result.confidenceTier,
             size: 88,
             strokeWidth: 7,
           ),
@@ -655,9 +690,9 @@ class _ResultBody extends StatelessWidget {
           Expanded(
             child: Text(
               warning,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textPrimary,
+                color: context.textPrimary,
                 height: 1.45,
               ),
             ),
@@ -696,9 +731,9 @@ class _ResultBody extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   recommendation,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.textPrimary,
+                    color: context.textPrimary,
                     height: 1.45,
                   ),
                 ),
@@ -736,7 +771,7 @@ class _ResultBody extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.wave,
+        color: context.tintedSurface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.aqua.withValues(alpha: 0.15)),
       ),
@@ -753,7 +788,7 @@ class _ResultBody extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: context.textPrimary,
                 ),
               ),
             ],
@@ -804,7 +839,7 @@ class _ResultBody extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: isTop ? FontWeight.w700 : FontWeight.w500,
-                    color: AppColors.textPrimary,
+                    color: context.textPrimary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -844,11 +879,11 @@ class _ResultBody extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.surfaceCard,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: AppColors.deepOcean.withValues(alpha: 0.03),
+            color: context.cardShadow,
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -876,7 +911,7 @@ class _ResultBody extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -904,7 +939,7 @@ class _MetaChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.wave,
+        color: context.tintedSurface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.aqua.withValues(alpha: 0.15)),
       ),

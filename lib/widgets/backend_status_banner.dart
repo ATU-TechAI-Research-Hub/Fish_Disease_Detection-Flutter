@@ -50,8 +50,7 @@ class _BackendStatusBannerState extends State<BackendStatusBanner> {
           icon: Icons.warning_amber_rounded,
           label: 'Model not loaded',
           color: AppColors.amber,
-          tooltip:
-              'Backend is running but no model.h5/ONNX file was found. '
+          tooltip: 'Backend is running but no model.h5/ONNX file was found. '
               'Place model.h5 in the /model folder or run training.',
         );
       case BackendStatus.offline:
@@ -84,8 +83,7 @@ class _BackendStatusBannerState extends State<BackendStatusBanner> {
         child: Tooltip(
           message: info.tooltip,
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(10),

@@ -55,7 +55,6 @@ class _DiseaseLibraryScreenState extends State<DiseaseLibraryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
       body: Column(
         children: [
           const AppPageHeader(
@@ -185,9 +184,10 @@ class _DiseaseLibraryScreenState extends State<DiseaseLibraryScreen> {
         minChildSize: 0.5,
         builder: (context, scrollController) {
           return Container(
-            decoration: const BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: SingleChildScrollView(
               controller: scrollController,
@@ -297,11 +297,11 @@ class _DiseaseLibraryScreenState extends State<DiseaseLibraryScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.surfaceCard,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: AppColors.deepOcean.withValues(alpha: 0.03),
+              color: context.cardShadow,
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -326,18 +326,18 @@ class _DiseaseLibraryScreenState extends State<DiseaseLibraryScreen> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      color: context.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     text,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: AppColors.textSecondary,
+                      color: context.textSecondary,
                       height: 1.5,
                     ),
                   ),
@@ -369,11 +369,11 @@ class _DiseaseCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         child: Ink(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.surfaceCard,
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: AppColors.deepOcean.withValues(alpha: 0.04),
+                color: context.cardShadow,
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
@@ -415,10 +415,10 @@ class _DiseaseCard extends StatelessWidget {
                     children: [
                       Text(
                         disease.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
+                          color: context.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -449,7 +449,7 @@ class _DiseaseCard extends StatelessWidget {
                 child: Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 16,
-                  color: AppColors.textSecondary.withValues(alpha: 0.35),
+                  color: context.textSecondary.withValues(alpha: 0.5),
                 ),
               ),
             ],

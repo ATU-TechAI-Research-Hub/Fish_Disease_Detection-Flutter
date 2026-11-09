@@ -24,9 +24,12 @@ import pandas as pd
 from PIL import Image
 from sklearn.metrics import (
     accuracy_score,
+    balanced_accuracy_score,
     classification_report,
+    cohen_kappa_score,
     confusion_matrix,
     log_loss,
+    matthews_corrcoef,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -64,8 +67,10 @@ def _gather_test_images(
     for entry in label_map.classes:
         class_dir = test_root / entry.folder_name
         if not class_dir.exists():
-            print(f"  WARNING: missing class folder: {class_dir}")
-            continue
+            raise FileNotFoundError(
+                f"Required test class folder is missing: {class_dir}. "
+                "Evaluation would otherwise report inflated/incomplete metrics."
+            )
         for file_path in sorted(class_dir.iterdir()):
             if file_path.is_file() and file_path.suffix.lower() in IMAGE_EXTENSIONS:
                 image_paths.append(file_path)
@@ -93,6 +98,47 @@ def _top_k_accuracy(probabilities: np.ndarray, y_true: np.ndarray, k: int) -> fl
         return 0.0
     top_k = np.argsort(probabilities, axis=1)[:, -k:]
     return float(np.mean([y in row for y, row in zip(y_true, top_k)]))
+
+
+def _multiclass_brier_score(
+    probabilities: np.ndarray, y_true: np.ndarray, num_classes: int
+) -> float:
+    """Mean squared probability error across all classes (lower is better)."""
+    targets = np.eye(num_classes, dtype=np.float32)[y_true]
+    return float(np.mean(np.sum((probabilities - targets) ** 2, axis=1)))
+
+
+def _expected_calibration_error(
+    probabilities: np.ndarray,
+    y_true: np.ndarray,
+    num_bins: int = 15,
+) -> float:
+    """Top-label ECE using equal-width confidence bins.
+
+    ECE does not measure classification accuracy. It measures whether a model
+    that says "80% confident" is correct about 80% of the time. Reporting it
+    alongside accuracy prevents overconfident models from looking safer than
+    they are (Guo et al., ICML 2017).
+    """
+    if len(probabilities) == 0:
+        return 0.0
+    confidences = np.max(probabilities, axis=1)
+    predictions = np.argmax(probabilities, axis=1)
+    correct = predictions == y_true
+    boundaries = np.linspace(0.0, 1.0, num_bins + 1)
+    ece = 0.0
+    for index in range(num_bins):
+        lower, upper = boundaries[index], boundaries[index + 1]
+        # Include confidence=1.0 in the final bin.
+        mask = (confidences >= lower) & (
+            confidences <= upper if index == num_bins - 1 else confidences < upper
+        )
+        if not np.any(mask):
+            continue
+        bin_accuracy = float(np.mean(correct[mask]))
+        bin_confidence = float(np.mean(confidences[mask]))
+        ece += float(np.mean(mask)) * abs(bin_accuracy - bin_confidence)
+    return float(ece)
 
 
 def evaluate(
@@ -130,6 +176,9 @@ def evaluate(
 
     target_names = label_map.class_names
     accuracy = float(accuracy_score(y_true, predictions))
+    balanced_accuracy = float(balanced_accuracy_score(y_true, predictions))
+    mcc = float(matthews_corrcoef(y_true, predictions))
+    kappa = float(cohen_kappa_score(y_true, predictions))
     cm = confusion_matrix(y_true, predictions, labels=list(range(len(target_names))))
     report = classification_report(
         y_true,
@@ -149,6 +198,10 @@ def evaluate(
     )
 
     top3 = _top_k_accuracy(probabilities, y_true, k=3)
+    brier = _multiclass_brier_score(
+        probabilities, y_true, num_classes=len(target_names)
+    )
+    ece = _expected_calibration_error(probabilities, y_true)
 
     outputs_dir.mkdir(parents=True, exist_ok=True)
     cm_df = pd.DataFrame(cm, index=target_names, columns=target_names)
@@ -170,8 +223,13 @@ def evaluate(
         "device": info.device,
         "num_test_images": len(image_paths),
         "test_accuracy": round(accuracy, 6),
+        "balanced_accuracy": round(balanced_accuracy, 6),
+        "matthews_correlation_coefficient": round(mcc, 6),
+        "cohen_kappa": round(kappa, 6),
         "test_loss": round(loss_value, 6),
         "top3_accuracy": round(top3, 6),
+        "multiclass_brier_score": round(brier, 6),
+        "expected_calibration_error": round(ece, 6),
         "per_class": {
             name: {
                 "precision": round(report[name]["precision"], 6),

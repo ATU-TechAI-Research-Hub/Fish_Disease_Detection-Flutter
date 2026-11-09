@@ -1,13 +1,19 @@
-# AquaScan — AI-Powered Freshwater Fish Disease Detection
+# AquaScan — AI-Powered Aquaculture Analysis
 
-A complete Flutter + FastAPI application that identifies freshwater fish
-diseases from a single photo, implementing the CNN architecture from
+A Flutter + FastAPI application with two independent computer-vision
+capabilities: freshwater fish disease classification and water-gated shrimp
+instance segmentation/counting. Fish diagnosis implements the CNN from
 [Tamut et al., *Aquaculture Journal* 2025, 5(1), 6](https://doi.org/10.3390/aquacj5010006).
 
-The app runs **fully offline** once installed: the model, labels, dataset
-metadata, and disease information are bundled locally and inference is executed
-against a local Keras `model.h5` (primary) with an ONNX fallback. No external
-APIs are contacted for predictions.
+Shrimp Counting & Analysis follows the included INFT 6903 methodology:
+text-prompted SAM 3 water isolation, fine-tuned YOLO11x-seg masks, and OpenCV
+ellipse major-axis length proxies. Model setup and training are documented in
+[backend/SHRIMP_ANALYSIS.md](backend/SHRIMP_ANALYSIS.md).
+
+Fish inference runs fully locally against Keras/ONNX. Shrimp inference is also
+local after the gated SAM 3 checkpoint and a trained shrimp `best.pt` have been
+installed; the first SAM 3 download requires Hugging Face access. No hosted
+inference API is used.
 
 ---
 
@@ -47,6 +53,13 @@ prediction is too uncertain (low max-confidence or high entropy).
 ## Features
 
 - Camera & gallery upload (Android / iOS) and gallery upload on desktop / web
+- Dedicated Shrimp Counting & Analysis flow with:
+  - SAM 3 `water` mask inspection
+  - hard-gated YOLO11 instance segmentation
+  - mask-based counts and per-instance confidence
+  - original-coordinate pixel length estimates
+  - original, water-mask, gated, annotated, and individual-mask views
+  - optional manual fiducial calibration for millimeters
 - Image preview before prediction
 - Result card with:
   - detected disease name
@@ -58,8 +71,18 @@ prediction is too uncertain (low max-confidence or high entropy).
   - top-3 predictions with progress bars
 - Loading state with animated header
 - Connection / "Offline mode" indicator that polls `/health`
+- **Google Sign-In (Firebase Auth)** with persistent sessions and a guest-mode
+  fallback — see [Authentication setup](#authentication-setup)
+- **Dark / light mode** (system default, user-overridable from the account sheet)
+- Pre-upload image quality validation (resolution, aspect ratio, file size)
 - Scan history with re-open + clear-all
 - Disease library — read about each class without scanning
+- Persistent, collapsible **Aquaculture AI Assistant**:
+  - local Qwen3, Mistral 7B, or Llama 3.1 GGUF inference
+  - FAISS retrieval over aquaculture documents
+  - automatic CNN prediction context
+  - Markdown, token streaming, citations, history, copy, regenerate, and clear
+  - no OpenAI or hosted generation API
 - Accessibility:
   - `Semantics` labels on result tier badges and status pills
   - Tooltips on connection-status icons
@@ -125,6 +148,12 @@ Aquaculture/
 │   ├── requirements.txt
 │   ├── run_backend.bat
 │   └── README.md
+├── AI chatbot/                      # Local aquaculture RAG assistant
+│   ├── aquaculture_assistant/       # RAG, ingestion, prompts, history, API
+│   ├── knowledge/                   # Fish-health and water-quality sources
+│   ├── models/                      # Local GGUF files (Git-ignored)
+│   ├── requirements-assistant.txt
+│   └── README.md
 ├── Freshwater_Fish_Disease_Aquaculture_in_south_asia/   # Kaggle dataset (Train/, Test/)
 ├── pubspec.yaml
 └── README.md
@@ -141,6 +170,7 @@ cd backend
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install --upgrade pip
 .venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install -r "..\AI chatbot\requirements-assistant.txt"
 run_backend.bat                                    # or: python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -148,7 +178,12 @@ Verify in a browser:
 
 - http://127.0.0.1:8000/        → service info
 - http://127.0.0.1:8000/health  → `model_ready: true` once the model is loaded
+- http://127.0.0.1:8000/assistant/health → local LLM and vector-index status
 - http://127.0.0.1:8000/docs    → Swagger UI
+
+The embedding model downloads once during assistant setup and is then cached
+locally. See [`AI chatbot/README.md`](AI%20chatbot/README.md) for GGUF model
+paths, supported knowledge formats, environment variables, and architecture.
 
 ### 2. Train `model.h5` (optional but recommended)
 
@@ -183,6 +218,42 @@ flutter run                # or: flutter run -d windows / chrome / macos
 For physical Android/iOS devices, set `lanIp` in
 `lib/services/api_prediction_service.dart` to your computer's LAN IP
 (`ipconfig` on Windows, `ipconfig getifaddr en0` on macOS).
+
+For a USB-connected Android device, the backend URL can be supplied without
+editing source:
+
+```powershell
+adb reverse tcp:8000 tcp:8000
+flutter run -d <device-id> --dart-define=AQUASCAN_BACKEND_URL=http://127.0.0.1:8000
+```
+
+---
+
+## Authentication setup
+
+Google Sign-In (Firebase Authentication) is fully wired in the app.
+Out of the box — before you attach a Firebase project — the login screen
+offers **Continue as Guest**, and every feature works without an account.
+
+To enable the Google button:
+
+1. Create a project at [console.firebase.google.com](https://console.firebase.google.com)
+   and enable **Authentication → Sign-in method → Google**.
+2. Register the Android app (`com.example.aquaculture`) and add your debug
+   SHA-1 fingerprint (`cd android && ./gradlew signingReport`).
+3. From the project root run:
+
+   ```bash
+   dart pub global activate flutterfire_cli
+   flutterfire configure
+   ```
+
+   This replaces the placeholder `lib/firebase_options.dart` with real
+   per-platform options and downloads `android/app/google-services.json`.
+
+Sessions persist automatically (Firebase secure storage); guest mode persists
+via `shared_preferences`. Sign out from the avatar → account sheet on the
+Home screen.
 
 ---
 
@@ -231,6 +302,10 @@ Everything required to run AquaScan is shipped or generated locally:
 | ONNX fallback | `backend/app/ml/fish_disease_classifier.onnx` |
 | Label mapping | `model/labels.json` |
 | Disease descriptions | `assets/diseases.json` |
+| Assistant knowledge | `AI chatbot/knowledge/` |
+| Local GGUF models | `AI chatbot/models/` |
+| Generated FAISS index | `AI chatbot/vector_db/` |
+| Chat history | `AI chatbot/chat_history/assistant_history.sqlite3` |
 | Backend code | `backend/...` |
 | Flutter app | `lib/...` |
 
@@ -269,6 +344,16 @@ proxy (e.g. Nginx) and update `lanIp` in
 | `GET` | `/model/info` | Full `ModelStatus` (paths, num_classes, image_size) |
 | `GET` | `/diseases` | List of disease metadata records |
 | `POST` | `/predict` | Multipart upload `file` → `PredictionResponse` |
+| `GET` | `/api/shrimp/status` | Shrimp model configuration and readiness |
+| `POST` | `/api/shrimp/analyze` | SAM 3 + YOLO11 shrimp analysis |
+| `GET` | `/assistant/health` | Local assistant/index status |
+| `GET` | `/assistant/models` | Available local GGUF models |
+| `GET` / `DELETE` | `/assistant/history/{session_id}` | Persistent chat history |
+| `DELETE` | `/assistant/session/{session_id}` | Delete a local assistant session |
+| `POST` | `/assistant/prediction-context` | Attach an existing prediction |
+| `POST` | `/assistant/chat` | Complete local RAG response |
+| `POST` | `/assistant/chat/stream` | NDJSON token stream |
+| `POST` | `/assistant/reindex` | Rebuild aquaculture vectors |
 
 **`PredictionResponse`** payload:
 
@@ -305,6 +390,19 @@ Direct (no HTTP) CLI prediction:
 
 ```powershell
 .venv\Scripts\python.exe -m tests.predict_cli --image-path "..\Freshwater_Fish_Disease_Aquaculture_in_south_asia\Test\Bacterial Red disease\Bacterial Red disease (1).jpg"
+```
+
+Automated API test suite (validation, determinism, preprocessing parity):
+
+```powershell
+cd backend
+.venv\Scripts\python.exe -m pytest tests\test_api.py -v
+```
+
+Flutter unit + widget tests (auth flows, app boot, guest session restore):
+
+```powershell
+flutter test
 ```
 
 ---

@@ -50,15 +50,35 @@ backend/.venv/
 
 # Local dataset and generated training outputs
 Freshwater_Fish_Disease_Aquaculture_in_south_asia/
+Shrimp-pictures/
+runs/
+backend/data/
 backend/train/artifacts/
 backend/outputs/
 backend/app/ml/audit_summary.json
+*.bak
 
 # Trained model artifacts (big files — store via release assets / cloud)
 # Comment out the next lines if you want to commit your trained model.
 model/*.h5
 backend/app/ml/model.h5
 backend/app/ml/*.h5
+backend/app/ml/shrimp/
+backend/train/shrimp/runs/
+*.pt
+*.pth
+*.safetensors
+
+# Local aquaculture assistant artifacts
+# GGUF files are 4-5 GB each and must be installed locally, never committed.
+*.gguf
+AI chatbot/models/
+AI chatbot/.venv/
+AI chatbot/vector_db/
+AI chatbot/chat_history/
+AI chatbot/faiss_index/
+AI chatbot/screenshots/
+AI chatbot/*.sqlite3
 
 
 # PowerPoint poster files

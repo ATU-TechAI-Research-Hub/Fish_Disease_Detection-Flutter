@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
 import '../services/backend_status_service.dart';
 import '../services/scan_flow.dart';
 import '../theme/app_theme.dart';
+import '../widgets/account_sheet.dart';
 import '../widgets/backend_status_banner.dart';
 import '../widgets/bubble_background.dart';
 import '../widgets/disease_category_strip.dart';
@@ -11,6 +13,7 @@ import '../widgets/primary_action_card.dart';
 import '../widgets/section_header.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/wave_clipper.dart';
+import 'shrimp_counting_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -56,7 +59,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final busyLabel = _isBusy ? 'Opening…' : null;
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _buildHero(context)),
@@ -99,7 +101,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 28),
                 const SectionHeader(
                   title: 'Start a scan',
-                  subtitle: 'Capture or upload a clear fish photo for analysis.',
+                  subtitle:
+                      'Capture or upload a clear fish photo for analysis.',
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -148,13 +151,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   _OfflineHint(),
                 ],
                 const SizedBox(height: 28),
+                const SectionHeader(
+                  title: 'Aquaculture AI tools',
+                  subtitle: 'Independent workflows for fish health and shrimp.',
+                ),
+                const SizedBox(height: 12),
+                const _ShrimpFeatureCard(),
+                const SizedBox(height: 28),
                 const SectionHeaderAccent(title: 'Detectable conditions'),
                 const SizedBox(height: 12),
                 const DiseaseCategoryStrip(),
                 const SizedBox(height: 28),
                 const SectionHeader(
                   title: 'How it works',
-                  subtitle: 'Four quick steps from photo to treatment guidance.',
+                  subtitle:
+                      'Four quick steps from photo to treatment guidance.',
                 ),
                 const SizedBox(height: 14),
                 const HowItWorksStrip(),
@@ -173,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHero(BuildContext context) {
     return BubbleBackground(
       child: WaveHeader(
-        height: 264,
+        height: 272,
         colors: const [AppColors.deepOcean, AppColors.ocean, AppColors.seaBlue],
         child: SafeArea(
           bottom: false,
@@ -221,7 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           Text(
-                            'Freshwater fish disease AI',
+                            'Freshwater aquaculture AI',
                             style: TextStyle(
                               fontSize: 12,
                               color: Color(0xFFB0D9F0),
@@ -232,6 +243,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const BackendStatusBanner(compact: true),
+                    const SizedBox(width: 8),
+                    const _AccountAvatar(),
                   ],
                 ),
                 const Column(
@@ -267,6 +280,122 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+class _ShrimpFeatureCard extends StatelessWidget {
+  const _ShrimpFeatureCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Open Shrimp Counting and Analysis',
+      child: InkWell(
+        key: const Key('home_shrimp_counting_action'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const ShrimpCountingScreen(),
+            ),
+          );
+        },
+        child: Ink(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.ocean, AppColors.teal],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.teal.withValues(alpha: 0.18),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: const Row(
+            children: [
+              _ShrimpIcon(),
+              SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Shrimp Counting & Analysis',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'AI-powered shrimp detection, counting, and size estimation.',
+                      style: TextStyle(
+                        color: Color(0xFFD6FAF5),
+                        fontSize: 12.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8),
+              Icon(Icons.arrow_forward_rounded, color: Colors.white),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShrimpIcon extends StatelessWidget {
+  const _ShrimpIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: const Icon(Icons.set_meal_rounded, color: Colors.white, size: 28),
+    );
+  }
+}
+
+/// Tappable avatar in the hero header — opens the account / settings sheet.
+class _AccountAvatar extends StatelessWidget {
+  const _AccountAvatar();
+
+  @override
+  Widget build(BuildContext context) {
+    final user = AuthService.instance.user;
+    return Semantics(
+      button: true,
+      label: 'Account and settings',
+      child: GestureDetector(
+        onTap: () => AccountSheet.show(context),
+        child: CircleAvatar(
+          radius: 18,
+          backgroundColor: Colors.white.withValues(alpha: 0.18),
+          foregroundImage:
+              user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
+          child: const Icon(
+            Icons.person_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _OfflineHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -286,7 +415,7 @@ class _OfflineHint extends StatelessWidget {
               'Start the backend with run_backend.bat on port 8000.',
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textPrimary.withValues(alpha: 0.85),
+                color: context.textPrimary.withValues(alpha: 0.85),
                 height: 1.35,
               ),
             ),
@@ -303,7 +432,7 @@ class _ResearchCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.wave,
+        color: context.tintedSurface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.aqua.withValues(alpha: 0.15)),
       ),
@@ -330,7 +459,7 @@ class _ResearchCard extends StatelessWidget {
               'freshwater fish images. Model accuracy ~81% on the held-out test set.',
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.ocean,
+                color: context.isDarkMode ? AppColors.wave : AppColors.ocean,
                 height: 1.45,
               ),
             ),
@@ -347,11 +476,11 @@ class _PhotoTipsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.surfaceCard,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: AppColors.deepOcean.withValues(alpha: 0.04),
+            color: context.cardShadow,
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -377,9 +506,10 @@ class _PhotoTipsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          ...['Side view of the fish in clear water',
-              'Good lighting — avoid heavy shadows',
-              'Fill the frame; avoid hands or nets',
+          ...[
+            'Side view of the fish in clear water',
+            'Good lighting — avoid heavy shadows',
+            'Fill the frame; avoid hands or nets',
           ].map(
             (tip) => Padding(
               padding: const EdgeInsets.only(bottom: 6),
@@ -390,9 +520,9 @@ class _PhotoTipsCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       tip,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.textSecondary,
+                        color: context.textSecondary,
                         height: 1.35,
                       ),
                     ),
